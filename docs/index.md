@@ -12,3 +12,4 @@
 | `experience-library/README.md` | 教训库说明 |
 | `experience-library/lessons.md` | 教训记录(只增不改) |
 | `experience-library/active-rules.md` | 复发≥2次问题的强制规则(待首条) |
+| `tool-recognition-matrix.md` | M0 出口标准复核证据:25+ 工具原生路径/识别机制/验证状态矩阵 |
