@@ -63,6 +63,16 @@ jobs:
           cd base/toaruos
           bash util/build-toolchain.sh
           make util/local/bin/kuroko
+          mkdir -p .make
+          for src in apps/*.c; do
+            kuroko util/auto-dep.krk --make "$src" > ".make/$(basename "${src%.c}").mak"
+          done
+          for src in lib/*.c; do
+            kuroko util/auto-dep.krk --makelib "$src" > ".make/$(basename "${src%.c}").lmak"
+          done
+          for src in lib/kuroko/*.c; do
+            kuroko util/auto-dep.krk --makekurokomod "$src" > ".make/$(basename "${src%.c}").kmak"
+          done
           make -j4
 
       - name: Collect boot artifacts
