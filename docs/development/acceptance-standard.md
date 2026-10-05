@@ -17,6 +17,13 @@
 | M0-08 | .gitignore 覆盖构建产物/镜像产物/reports/ | 清单核对 |
 | M0-09 | 根 README 含官方口号(主/副/Tagline)且不含禁用口号 | 文本检查 |
 | M0-10 | git 仓库初始化完成,初始提交带 Signed-off-by(DCO) | git log --show-signature / --format 检查 |
+| M0-11 | REUSE 基线:`LICENSES/MIT.txt` + `REUSE.toml` 存在且映射全仓(spec M0 关键产出"REUSE 基线") | 文件存在 + 内容含 SPDX 映射 |
+| M0-12 | 空构建过:`make` 在仓库根目录 exit 0(spec M0 出口标准) | `make` 实跑 exit 0 |
+| M0-13 | `.etherkit/` 五类齐全且有实体:skills/ agents-md/ rules/ prompts/ frameworks/ 均含非空文件且被 git 追踪 | `git ls-files .etherkit` 五类各有 ≥1 文件 |
+
+> **勘误(2026-10-05,用户审计发现)**:初版清单遗漏了 spec M0 的"REUSE 基线"与"空构建过",
+> 属实现者降标。已按 spec 还原(M0-11/12/13);此事件入 docs/experience-library/lessons.md。
+> 依据:用户 2026-10-05 指令"重新用 Superpowers 流程核对" + 批准"全量出计划"。
 
 **M0 明确不做(YAGNI)**:内核/插件实现代码、ToaruOS 拉取、GitHub remote 配置(下一步单独做)、六项 CI 全验(仅 etherkit-consistency)。
 
