@@ -1,4 +1,5 @@
 # EtherOS M0 空构建桩:M1 起由底座真实构建接管 build 目标
+.DEFAULT_GOAL := build
 .PHONY: check build clean
 
 check:
