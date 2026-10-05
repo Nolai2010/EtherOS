@@ -70,3 +70,101 @@ jobs:
           name: etheros-boot-artifacts
           path: artifacts/
           if-no-files-found: warn
+
+  vm-smoke:
+    # T11:QEMU headless 启动取证。跑法忠实于上游 build/x86_64.mk 的 shell 目标:
+    # fw_cfg bootmode=headless 让 bootloader 跳过菜单并以 start=--headless 启动,
+    # base/etc/startup.d/99_runstart.sh 据此执行 /bin/getty ${GETTY_ARGS},
+    # gettyargs 经 fw_cfg 注入(指向 ttyS1 = 第二个 -serial)。apps/login.c:86
+    # 会向串口打印 "<hostname> login: ",hostname 为 base/etc/hostname 的 "livecd"。
+    # 断言文本 "login:" 系从上游源码核实,非想象字符串。
+    name: vm smoke (QEMU headless boot evidence)
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download boot artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: etheros-boot-artifacts
+          path: artifacts
+
+      - name: Install QEMU
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends qemu-system-x86
+
+      - name: Boot image headless and capture serial log
+        run: |
+          ls -la artifacts/
+          ISO=$(find artifacts -name "*.iso" | head -1)
+          test -n "$ISO" || { echo "NO ISO ARTIFACT"; exit 1; }
+          qemu-system-x86_64 --version
+          rm -f serial-com1.log serial-com2.log screen.ppm
+          # COM1(0x3F8)接 early log 文件;COM2(ttyS1)接 getty。VGA 保留设备但
+          # -display none 不渲染(bootloader/fbterm 需要 VGA,勿加 -vga none)。
+          qemu-system-x86_64 \
+            -M q35 -m 512 -smp 2 -no-reboot \
+            -cdrom "$ISO" -boot d \
+            -display none -nic none \
+            -serial file:serial-com1.log \
+            -serial file:serial-com2.log \
+            -fw_cfg name=opt/org.toaruos.bootmode,string=headless \
+            -fw_cfg "name=opt/org.toaruos.gettyargs,string=/dev/ttyS1 115200 xterm" \
+            -qmp unix:/tmp/qmp.sock,server,nowait \
+            &
+          QEMU_PID=$!
+          # ubuntu-latest 无 KVM,TCG 启动慢:每 5s 轮询串口,至多 ~120s,拿到即提前收
+          EVIDENCE=""
+          for i in $(seq 1 24); do
+            sleep 5
+            if grep -aq "login:" serial-com2.log 2>/dev/null; then EVIDENCE=yes; break; fi
+            if ! kill -0 "$QEMU_PID" 2>/dev/null; then echo "qemu exited early (round $i)"; break; fi
+          done
+          echo "poll rounds: $i, evidence: ${EVIDENCE:-none}"
+          # 辅助证据:QMP screendump(fbterm 内核控制台),尽力而为,失败不阻塞
+          cat > /tmp/qmp_dump.py <<'PYEOF'
+          import socket
+          s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+          s.connect("/tmp/qmp.sock")
+          f = s.makefile("rwb")
+          f.readline()
+          f.write(b'{"execute":"qmp_capabilities"}\n'); f.flush()
+          f.readline()
+          f.write(b'{"execute":"screendump","arguments":{"filename":"screen.ppm"}}\n'); f.flush()
+          f.readline()
+          f.close(); s.close()
+          PYEOF
+          python3 /tmp/qmp_dump.py || true
+          kill "$QEMU_PID" 2>/dev/null || true
+          wait "$QEMU_PID" 2>/dev/null || true
+          echo "---- serial-com1.log (COM1 early log, head 100) ----"
+          head -100 serial-com1.log 2>/dev/null | cat -v || true
+          echo "---- serial-com2.log (COM2 getty/login, head 100) ----"
+          head -100 serial-com2.log 2>/dev/null | cat -v || true
+          ls -la serial-com1.log serial-com2.log screen.ppm 2>/dev/null || true
+
+      - name: Assert boot evidence (honest)
+        run: |
+          test -f serial-com2.log || { echo "NO SERIAL LOG"; exit 1; }
+          # 真实断言:login 启动后必打印 "<hostname> login: "(apps/login.c:86),
+          # 出现即证明内核与用户态均已真正跑起来(ramdisk/驱动/init 全链路)。
+          if grep -aq "login:" serial-com2.log; then
+            echo "BOOT EVIDENCE OK: userspace login reached on serial (COM2)"
+            exit 0
+          fi
+          echo "NO BOOT EVIDENCE IN SERIAL"
+          echo "---- serial-com2.log (full) ----"
+          cat -v serial-com2.log || true
+          exit 1
+
+      - name: Upload smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vm-smoke-evidence
+          path: |
+            serial-com1.log
+            serial-com2.log
+            screen.ppm
+          if-no-files-found: warn
