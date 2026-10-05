@@ -62,6 +62,12 @@ jobs:
         run: |
           cd base/toaruos
           bash util/build-toolchain.sh
+          # build-toolchain.sh 无 set -e 且内部时序缺陷:libgcc_s.so.1 共享链接需要 sysroot 里有
+          # libc.so,但脚本在 libc.so 产出前就跑 all-target-libgcc,失败被静默吞掉。此处 libc.so
+          # 已在(脚本末段重链成功),重跑 target-libgcc 补齐 libgcc_s.so.1/install——
+          # 主 Makefile 模式规则 base/usr/lib/% 依赖 util/local/x86_64-pc-toaru/lib/ 里的该文件。
+          make -j4 -C util/build/gcc all-target-libgcc
+          make -j4 -C util/build/gcc install-target-libgcc
           make util/local/bin/kuroko
           # 方案 B:step shell 的 PATH 不含工具链目录(上游 activate.sh 只在 make 进程内注入),
           # 此处显式补上,kuroko 预生成循环与 make -j4 均依赖它。
