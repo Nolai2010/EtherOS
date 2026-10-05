@@ -37,3 +37,6 @@ jobs:
             echo "::error::检测到禁用口号裸用(DeepSeek Harness 已占用)。请使用「融汇万端 / Connect the Unconnectable.」;警示性提及须带 禁用/严禁/不使用 等字样。"
             exit 1
           fi
+
+      - name: M0 empty build (skeleton check)
+        run: make
