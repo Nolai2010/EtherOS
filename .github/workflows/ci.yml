@@ -40,3 +40,36 @@ jobs:
 
       - name: M0 empty build (skeleton check)
         run: make
+
+  build:
+    name: build ToaruOS base (submodules recursive)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies (per docs/reports/2026-10-06-toaruos-survey.md)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential python3 xorriso genext2fs mtools gnu-efi git \
+            automake autoconf wget libgmp-dev libmpfr-dev libmpc-dev \
+            flex bison texinfo dosfstools
+
+      - name: Build base OS
+        run: make build
+
+      - name: Collect boot artifacts
+        run: |
+          mkdir -p artifacts
+          find base/toaruos -maxdepth 2 -type f \( -name "*.iso" -o -name "misaka-kernel" -o -name "*.igz" \) -exec cp {} artifacts/ \; || true
+          ls -la artifacts/
+
+      - name: Upload boot artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: etheros-boot-artifacts
+          path: artifacts/
+          if-no-files-found: warn
