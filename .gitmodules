@@ -1,0 +1,3 @@
+[submodule "base/toaruos"]
+	path = base/toaruos
+	url = https://github.com/klange/toaruos

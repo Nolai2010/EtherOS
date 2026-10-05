@@ -5,6 +5,7 @@ cd "$(dirname "$0")/.."
 fail=0
 for d in spec docs kernel arch/x86_64 arch/aarch64 plugins/schema plugins/compat \
          plugins/builtin plugins/optional plugins/dev config packages sdk themes \
+         base/toaruos \
          .etherkit .github/workflows; do
   [ -d "$d" ] || { echo "MISSING DIR: $d"; fail=1; }
 done
