@@ -1,0 +1,15 @@
+version = 1
+
+# 仓库自有内容:MIT
+[[annotations]]
+path = ["**"]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 EtherOS contributors"
+SPDX-License-Identifier = "MIT"
+
+# 许可/通告文件本身:CC0-1.0(REUSE 惯例)
+[[annotations]]
+path = ["LICENSE", "NOTICE", "LICENSES/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 EtherOS contributors"
+SPDX-License-Identifier = "CC0-1.0"
