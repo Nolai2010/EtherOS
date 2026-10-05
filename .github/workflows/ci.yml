@@ -39,7 +39,7 @@ jobs:
           fi
 
       - name: M0 empty build (skeleton check)
-        run: make
+        run: make check
 
   build:
     name: build ToaruOS base (submodules recursive)
@@ -63,6 +63,9 @@ jobs:
           cd base/toaruos
           bash util/build-toolchain.sh
           make util/local/bin/kuroko
+          # 方案 B:step shell 的 PATH 不含工具链目录(上游 activate.sh 只在 make 进程内注入),
+          # 此处显式补上,kuroko 预生成循环与 make -j4 均依赖它。
+          export PATH="$PWD/util/local/bin:$PATH"
           mkdir -p .make
           for src in apps/*.c; do
             kuroko util/auto-dep.krk --make "$src" > ".make/$(basename "${src%.c}").mak"
