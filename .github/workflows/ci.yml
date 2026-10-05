@@ -42,7 +42,10 @@ jobs:
         run: make check
 
   build:
-    name: build ToaruOS base (submodules recursive)
+    # 上游官方构建路径:toaruos/build-tools 镜像自带预构建工具链 /root/gcc_local,
+    # 由 util/build-in-docker.sh 链接后执行 make(见 docs/reports/2026-10-06-toaruos-survey.md)。
+    # 裸 runner 自举工具链在 round 3 实证不可行(libgcc_s.so.1 链出失败被吞,模式规则断链)。
+    name: build ToaruOS base (upstream builder image)
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -50,39 +53,10 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install build dependencies (per docs/reports/2026-10-06-toaruos-survey.md)
+      - name: Build base OS (upstream builder image, per docs/reports/2026-10-06-toaruos-survey.md)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential python3 xorriso genext2fs mtools gnu-efi git \
-            automake autoconf wget libgmp-dev libmpfr-dev libmpc-dev \
-            flex bison texinfo dosfstools
-
-      - name: Build base OS
-        run: |
-          cd base/toaruos
-          bash util/build-toolchain.sh
-          # build-toolchain.sh 无 set -e 且内部时序缺陷:libgcc_s.so.1 共享链接需要 sysroot 里有
-          # libc.so,但脚本在 libc.so 产出前就跑 all-target-libgcc,失败被静默吞掉。此处 libc.so
-          # 已在(脚本末段重链成功),重跑 target-libgcc 补齐 libgcc_s.so.1/install——
-          # 主 Makefile 模式规则 base/usr/lib/% 依赖 util/local/x86_64-pc-toaru/lib/ 里的该文件。
-          make -j4 -C util/build/gcc all-target-libgcc
-          make -j4 -C util/build/gcc install-target-libgcc
-          make util/local/bin/kuroko
-          # 方案 B:step shell 的 PATH 不含工具链目录(上游 activate.sh 只在 make 进程内注入),
-          # 此处显式补上,kuroko 预生成循环与 make -j4 均依赖它。
-          export PATH="$PWD/util/local/bin:$PATH"
-          mkdir -p .make
-          for src in apps/*.c; do
-            kuroko util/auto-dep.krk --make "$src" > ".make/$(basename "${src%.c}").mak"
-          done
-          for src in lib/*.c; do
-            kuroko util/auto-dep.krk --makelib "$src" > ".make/$(basename "${src%.c}").lmak"
-          done
-          for src in lib/kuroko/*.c; do
-            kuroko util/auto-dep.krk --makekurokomod "$src" > ".make/$(basename "${src%.c}").kmak"
-          done
-          make -j4
+          docker pull toaruos/build-tools:1.99.x
+          docker run -v ${{ github.workspace }}/base/toaruos:/root/misaka -w /root/misaka -e LANG=C.UTF-8 -t toaruos/build-tools:1.99.x util/build-in-docker.sh
 
       - name: Collect boot artifacts
         run: |
