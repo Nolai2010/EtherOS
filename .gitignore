@@ -1,0 +1,21 @@
+# OS / 编辑器杂物
+.DS_Store
+Thumbs.db
+*.swp
+
+# 构建产物
+build/
+dist/
+*.o
+*.a
+
+# VM / 镜像产物(发布走 GitHub Releases,不入库)
+*.iso
+*.img
+*.vhd
+*.vhdx
+*.ova
+*.qcow2
+
+# 本地验证输出(参考工程惯例:reports/ 只留本地)
+reports/

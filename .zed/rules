@@ -1,0 +1,38 @@
+# 01 · 项目上下文（EtherOS）
+
+- **EtherOS** = 插件原生、内核极简的开源大一统操作系统。
+- 内核只做：调度 + 协议/能力解释(路由) + 加载/隔离。**零格式知识**。
+- 内核之外没有非插件实体：驱动/服务/shell/文件管理器/设置/性能监控都是 `plugins/builtin/` 内建不可卸载插件；计算器、抖音兼容包等是 `plugins/optional/` 可选插件。
+- 口号：主「融汇万端 (Connect the Unconnectable.)」；技术副「一纸插件声明，兼容百种格式，贯通各类终端」。**严禁使用「一切皆插件」**（DeepSeek Harness 已占用）。
+- 权威方针：`spec/2026-10-05-etheros-dev-policy.md`（v3）。与本文件冲突时以 spec 为准，并回改本文件。
+- 当前里程碑：**M0（仓库、合规基线、骨架、.etherkit 自举）**。M1 起才评估拉取 ToaruOS 底座。
+
+# 02 · 插件优先铁律（Plugin-First Iron Rules）
+
+1. **内核零格式知识**：禁止向 `kernel/` 添加文件系统格式、应用格式（ipa/exe/apk）、设备协议逻辑、UI 或驱动代码。格式兼容一律在 `plugins/compat/` 用户态兼容运行时实现。
+2. **新增能力 = 声明式 JSON + 同级二进制**：写类 MCP 的 `plugin.json`（含 `protocols`/`capabilities`/`container`/`uninstallable` 字段），把二进制放同级目录。示例：装抖音 = `plugins/optional/douyin/douyin.json`（`protocols:["ipa"]`）+ `douyin.ipa`。
+3. **一切系统能力皆插件**：需要"系统应用"时，放 `plugins/builtin/` 并标 `uninstallable:false`；可选功能放 `plugins/optional/`。禁止在内核或独立目录硬编码非插件实体。
+4. **不早期重写底座**：优先评估 ToaruOS，保留其原生目录与构建系统，仅叠加；不要为了"纯净"重构内核。
+5. **跨形态自适应**：同一插件经 manifest `container` 字段声明 PC 窗口化 / 手机全屏或分屏，由 shell（内建插件）选择容器策略，不为形态复制代码。
+6. **CORE_MANIFEST.toml 是内核边界的唯一声明处**：清单之外的能力必须是插件。CI 将来会校验。
+
+# 03 · 对抗式验收与防作弊（Acceptance & Anti-Gaming）
+
+- **写实现的 Agent ≠ 审查的 Agent**：builder/实现上下文与 reviewer、visual-reviewer、acceptance-checker 必须是不同上下文。**禁止自评**。
+- **一个修复一个核验**：每轮只修一个已确认问题 → 修完立即独立核验 → 通过才进入下一个。
+- **验收标准是外部合格线**：来自 `docs/development/acceptance-standard.md`，实现者不得新增、改写或降低；发现缺失/冲突/待定 → 停下问用户。
+- **假覆盖 = 未覆盖**：只跑通不断言、断言错对象、把〔待定〕写死成方便值，都记为假覆盖（acceptance-checker 判定口径，偏严）。
+- **视觉改动前置视觉复核**：GUI/主题/画面基准相关，测试通过后先交 `visual-reviewer` 只读复核，再交 `reviewer`。
+- **教训必须沉淀**：任何失败/返工/踩坑，修完后写入 `docs/experience-library/lessons.md`；复发两次以上的问题升级为 `active-rules.md` 强制规则。
+- **主 Agent 责任**：最终结论由主 Agent 负责，必须统一复核改动并运行必要验证，不能照搬子 Agent 结论。
+
+# 04 · 许可、提交与工作流（License & Workflow）
+
+- **许可**：主许可 MIT（M1 许可清算后宣布纯 MIT）；清算前保留上游 LICENSE + NOTICE；每个源文件顶部加 `# SPDX-License-Identifier: MIT`（REUSE 规范）；第三方组件只允许 MIT/Apache/BSD 类，非同类主动替换。
+- **DCO**：每次提交带 `Signed-off-by`（`git commit -s`），CI 校验。
+- **分支**：GitHub Flow 简化——`main` + 短命分支 + PR；不开长期开发分支。
+- **提交信息**：一行主题 ≤72 字符，写"做了什么"而非"改了哪个文件"；破坏性变更在主题加 `!` 并在正文说明。
+- **文档索引制**：新增/移动文档必须同步更新 `docs/index.md`；新增教训必须写入 `docs/experience-library/`。
+- **YAGNI**：当前阶段只做文档/骨架/脚手架/CI；任何"顺手实现内核功能"都算越界，回滚。
+- **生成物纪律**：`.etherkit/` 之外的所有 Agent 配置都是生成物，禁止手改；改规则 → 改 `.etherkit/` → `bash .etherkit/generate.sh` → 一并提交。
+

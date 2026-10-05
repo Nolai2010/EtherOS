@@ -1,0 +1,14 @@
+# config/build.toml —— EtherOS 构建期裁剪配置（M0 桩）
+# 类 kconfig 思路:CI 与本地构建按此裁剪目标;M1 拉入 ToaruOS 底座后对接其构建系统。
+
+[target]
+arch_priority = ["x86_64", "aarch64"]   # riscv64 仅评估,不进构建
+vm_first = true                          # 虚拟机优先;本地 QEMU 冒烟,CI 用 KVM
+
+[ci]
+runner = "github-hosted-ubuntu"          # 支持 KVM
+jobs = ["build", "vm-smoke", "license", "dco", "lint", "spec-consistency"]
+
+[yagni]
+# Phase 1 不做的事(防止范围蔓延):
+deferred = ["exe-full-translation", "ipa-full-translation", "mobile-split", "prod-security-model"]

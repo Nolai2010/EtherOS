@@ -1,0 +1,9 @@
+# 03 · 对抗式验收与防作弊（Acceptance & Anti-Gaming）
+
+- **写实现的 Agent ≠ 审查的 Agent**：builder/实现上下文与 reviewer、visual-reviewer、acceptance-checker 必须是不同上下文。**禁止自评**。
+- **一个修复一个核验**：每轮只修一个已确认问题 → 修完立即独立核验 → 通过才进入下一个。
+- **验收标准是外部合格线**：来自 `docs/development/acceptance-standard.md`，实现者不得新增、改写或降低；发现缺失/冲突/待定 → 停下问用户。
+- **假覆盖 = 未覆盖**：只跑通不断言、断言错对象、把〔待定〕写死成方便值，都记为假覆盖（acceptance-checker 判定口径，偏严）。
+- **视觉改动前置视觉复核**：GUI/主题/画面基准相关，测试通过后先交 `visual-reviewer` 只读复核，再交 `reviewer`。
+- **教训必须沉淀**：任何失败/返工/踩坑，修完后写入 `docs/experience-library/lessons.md`；复发两次以上的问题升级为 `active-rules.md` 强制规则。
+- **主 Agent 责任**：最终结论由主 Agent 负责，必须统一复核改动并运行必要验证，不能照搬子 Agent 结论。

@@ -1,0 +1,34 @@
+# EtherOS CI(M0 阶段:脚手架一致性门禁;M5 扩展为六项全验,见 spec §5)
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  etherkit-consistency:
+    name: etherkit single-source consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Regenerate tool configs from .etherkit/
+        run: bash .etherkit/generate.sh
+
+      - name: Fail on drift (generated files must be committed & in sync)
+        run: |
+          if ! git diff --exit-code; then
+            echo "::error::.etherkit/ 与生成物不同步:请修改 .etherkit/ 源文件后运行 bash .etherkit/generate.sh,并把源与生成物一并提交(禁止手改生成物)。"
+            exit 1
+          fi
+
+      - name: Doc index consistency (docs/index.md must exist)
+        run: test -f docs/index.md
+
+      - name: Slogan guard (forbidden slogan must not appear)
+        run: |
+          # 豁免: .etherkit/(规则源记录红线)、spec/(方针记录红线)、experience-library(教训记录)
+          if grep -rn "一切皆插件" --include="*.md" --exclude-dir=.etherkit --exclude-dir=spec --exclude-dir=experience-library . ; then
+            echo "::error::检测到禁用口号(DeepSeek Harness 已占用)。请使用「融汇万端 / Connect the Unconnectable.」。"
+            exit 1
+          fi

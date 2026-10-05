@@ -1,0 +1,16 @@
+# config/default.toml —— EtherOS 运行期默认配置（M0 桩）
+# 集中化、单目录、随仓库迁移;镜像内 /etc/os/config.toml 可覆盖本文件。
+# M2 起由内核/插件读取;当前仅声明结构,不含生效逻辑。
+
+[system]
+name = "EtherOS"
+stage = "M0-skeleton"
+
+[shell]
+# shell 是内建插件(plugins/builtin/),此处仅配置其容器策略偏好
+default_container = "windowed"   # desktop: windowed | mobile: fullscreen|split
+
+[compat]
+# 兼容运行时开关(M3 起生效)
+enabled = false
+allow_formats = []               # M3 桩: 本地格式白名单,如 ["demo-script"]
