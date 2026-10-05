@@ -59,7 +59,11 @@ jobs:
             flex bison texinfo dosfstools
 
       - name: Build base OS
-        run: make build
+        run: |
+          cd base/toaruos
+          bash util/build-toolchain.sh
+          make util/local/bin/kuroko
+          make -j4
 
       - name: Collect boot artifacts
         run: |
