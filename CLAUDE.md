@@ -25,7 +25,7 @@
 ## 实现约束（铁律）
 
 1. **内核零格式知识**：不给内核添加任何文件系统格式、应用格式（ipa/exe/apk）、设备协议逻辑；格式兼容一律走 `plugins/compat/` 用户态兼容运行时。
-2. **一切皆插件（系统内）**：驱动/服务/shell/文件管理器/设置/性能监控 = `plugins/builtin/` 内建不可卸载插件（`uninstallable:false`）；计算器、抖音兼容包等 = `plugins/optional/`（`uninstallable:true`）。二者结构同构，仅 manifest 标志不同。
+2. **全系统皆插件（系统内）**：驱动/服务/shell/文件管理器/设置/性能监控 = `plugins/builtin/` 内建不可卸载插件（`uninstallable:false`）；计算器、抖音兼容包等 = `plugins/optional/`（`uninstallable:true`）。二者结构同构，仅 manifest 标志不同。
 3. **新增能力 = 声明式 JSON + 同级二进制**（类 MCP 的 `plugin.json`），不改内核代码。
 4. **不早期重写内核底座**（优先评估 ToaruOS）；保留底座原生目录与构建系统，仅叠加。
 5. **YAGNI**：Phase 1（M0–M6）只做 schema、集中配置、1–2 个 demo 兼容插件、Agent 自举、CI、发布；exe/ipa 完整翻译、移动分屏、多架构完整启动、生产安全模型放 Phase 2。

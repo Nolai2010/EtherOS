@@ -27,8 +27,13 @@ jobs:
 
       - name: Slogan guard (forbidden slogan must not appear)
         run: |
-          # 豁免: .etherkit/(规则源记录红线)、spec/(方针记录红线)、experience-library(教训记录)
-          if grep -rn "一切皆插件" --include="*.md" --exclude-dir=.etherkit --exclude-dir=spec --exclude-dir=experience-library . ; then
-            echo "::error::检测到禁用口号(DeepSeek Harness 已占用)。请使用「融汇万端 / Connect the Unconnectable.」。"
+          # 禁用口号守卫:裸用拦截;警示性提及(含 禁用/严禁/不使用/DeepSeek/占用 字样)豁免。
+          # 目录豁免: .etherkit(规则源)/spec(方针记录)/experience-library(教训记录)。
+          hits=$(grep -rn "一切皆插件" --include="*.md" \
+                   --exclude-dir=.etherkit --exclude-dir=spec --exclude-dir=experience-library . \
+                 | grep -vE "禁用|严禁|不使用|DeepSeek|占用" || true)
+          if [ -n "$hits" ]; then
+            echo "$hits"
+            echo "::error::检测到禁用口号裸用(DeepSeek Harness 已占用)。请使用「融汇万端 / Connect the Unconnectable.」;警示性提及须带 禁用/严禁/不使用 等字样。"
             exit 1
           fi
