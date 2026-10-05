@@ -39,6 +39,7 @@
 ## 状态
 
 - [x] M0 骨架：目录、`.etherkit/` 自举、CI（etherkit 一致性检查）
-- [ ] M0 收尾：GitHub remote、许可清算基线
+- [x] M0 收尾：remote/REUSE 基线/空构建/五类/独立验收通过（docs/reports/2026-10-06-m0-acceptance.md，13/13）
+- [x] M0 关闭：tag v0.0.1-m0
 - [ ] M1：ToaruOS 底座评估 + 文件级许可清单
 - [ ] M2–M6：插件 schema → 兼容桩 → 内建插件归位 → CI 六项 → Releases
