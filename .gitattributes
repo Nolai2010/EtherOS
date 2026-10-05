@@ -1,0 +1,8 @@
+# 行尾统一 LF(generate.sh 产物为 LF;CI 在 Linux 比对,防止跨平台行尾漂移干扰 etherkit-consistency 门禁)
+* text=auto
+*.md   text eol=lf
+*.toml text eol=lf
+*.yml  text eol=lf
+*.sh   text eol=lf
+*.mdc  text eol=lf
+*.json text eol=lf
