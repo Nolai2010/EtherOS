@@ -24,3 +24,5 @@
 | `../tools/route_plugins.py` | 协议路由解析器(M3):`python3 tools/route_plugins.py --protocol <p>` 在 enabled 的 compat-bridge 中按协议解析 plugin→translator→payload 路由链 JSON,未知协议 exit 非 0 |
 | `../tools/route_plugins.py` | 同上 `--run <name>`:native 插件经 sh 实跑 payload 并透传输出;compat-bridge 仅调用用户态 translator 出翻译计划,不执行 foreign payload |
 | `../plugins/compat/README.md` | compat 目录约定(M3):translator 集合地语义、translator 调用契约(--manifest/--payload、stub-plan-only)、路由链语义与 M3 stub 边界声明 |
+| `docs/reports/2026-10-06-m2-acceptance.md` | M2 独立验收报告（8/8 PASS） |
+| `docs/reports/2026-10-06-m3-acceptance.md` | M3 独立验收报告（8/8 PASS） |
