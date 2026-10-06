@@ -1,0 +1,10 @@
+{
+  "schema_version": "1",
+  "name": "files",
+  "version": "0.1.0",
+  "type": "native",
+  "uninstallable": false,
+  "payload": "payload/files",
+  "container": { "desktop": "windowed" },
+  "capabilities": ["fs.browse"]
+}

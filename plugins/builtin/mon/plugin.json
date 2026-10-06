@@ -1,0 +1,10 @@
+{
+  "schema_version": "1",
+  "name": "mon",
+  "version": "0.1.0",
+  "type": "native",
+  "uninstallable": false,
+  "payload": "payload/mon",
+  "container": { "desktop": "windowed" },
+  "capabilities": ["sys.perfmon"]
+}
