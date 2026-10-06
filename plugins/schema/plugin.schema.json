@@ -44,8 +44,8 @@
     },
     "container": {
       "type": "object",
-      "description": "跨形态适配声明(spec §2.2):desktop 窗口化,mobile 全屏/分屏。",
-      "required": ["desktop", "mobile"],
+      "description": "跨形态适配声明(spec §2.2):desktop 窗口化,mobile 全屏/分屏;desktop/mobile 至少其一(台账 Ruling:跨形态适配语义)。",
+      "minProperties": 1,
       "additionalProperties": false,
       "properties": {
         "desktop": {
