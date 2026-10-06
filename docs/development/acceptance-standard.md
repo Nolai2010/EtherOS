@@ -44,6 +44,19 @@ M1(底座基线)/M2(schema+配置)/M3(兼容桩)/M4(内建归位)/M5(CI 六项)/
 | M2-07 | CI 新增插件校验 job/step 且通过 | CI 绿 |
 | M2-08 | docs/index.md 与新增文档一致(M0-05 不回退) | 比对 |
 
+## M3 · 兼容插件桩、翻译运行时雏形与内核最小接口
+
+| 编号 | 标准 | 验证方式 |
+|---|---|---|
+| M3-01 | plugins/compat/ 有 ≥1 个翻译运行时雏形实体：可执行 translator（stub），输入 manifest 与 payload 输出结构化翻译计划 JSON 并声明 stub 未实现真实格式解析（约束 16） | 实跑 translator 断言 exit 0 + 输出含协议与 stub 声明 |
+| M3-02 | ≥1 个 compat-bridge 桩插件（douyin 示例）：protocols 含 ipa，translator 指向 plugins/compat/ 实体文件，通过 validator 全部检查；translator 指向不存在文件的负例被拒绝 | validator 正/负例实跑 |
+| M3-03 | hello-plugin payload 实体化为可执行脚本（兑现 M2 记档），validator 对其校验通过 | validator 实跑 |
+| M3-04 | 协议路由衔接：路由解析器按协议名从 enabled 插件解析出 plugin→translator→payload 结构化路由链；未知协议 → exit 非 0 且输出原因 | 路由器正/负例实跑 |
+| M3-05 | 内核最小接口契约存在于 kernel/interfaces/（route/load/isolate 三原语，格式无关）；base/toaruos 零改动；kernel/ 无格式扩展名字面量 | `git diff v0.2.0-m2..HEAD -- base/toaruos` 为空 + `git diff v0.2.0-m2..HEAD -- kernel/` 仅新增 interfaces/ + grep 断言 |
+| M3-06 | config [plugins] enabled 含 douyin 且 validator 全树校验 OK；M2 正/负例行为零回退 | validator 实跑 + 旧负例复跑 |
+| M3-07 | CI plugin-schema job 含 M3 校验步骤且通过 | CI 绿 |
+| M3-08 | docs/index.md 与 plugins/compat/README 更新一致（M0-05 不回退） | 比对 |
+
 ## M1 · 底座基线(归档:经独立验收)
 
 > 本章节为**归档补录**(2026-10-06 追加):M1 验收执行时本文档尚无 M1 章节(见验收报告口径差异段 1),
