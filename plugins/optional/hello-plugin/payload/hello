@@ -1,0 +1,5 @@
+#!/bin/sh
+# EtherOS M3 demo payload (hello-plugin, M3-03)
+# demo 边界:仅打印确定性问候(供 CI grep 断言),不加载任何外部格式;
+# 真实应用运行/窗口化渲染属 Phase 2(spec §6 风险 4"目标形态不是首版承诺")。
+echo "EtherOS demo: hello from plugin hello-plugin"

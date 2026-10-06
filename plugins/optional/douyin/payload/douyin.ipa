@@ -1,0 +1,3 @@
+foreign payload placeholder, never parsed or executed in M3 (Global Constraint 17).
+EtherOS M3 compat stub: this file only validates the manifest/route/translator chain.
+Real ipa translation is Phase 2, per-format project (spec §6 risk 4).
