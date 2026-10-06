@@ -9,3 +9,12 @@ license) pending the M1 license audit; such portions, if adopted, will retain
 their original license text collected under LICENSES/.
 
 Slogan: Connect the Unconnectable. (融汇万端)
+
+Third-party base (pending integration): ToaruOS
+- Repository: https://github.com/klange/toaruos
+- Pinned commit: e77143fd14391d880c3ee11c1524252cdcbfd225
+- License: University of Illinois/NCSA Open Source License (see LICENSE inside the
+  base/toaruos submodule; the upstream tree is preserved verbatim, unmodified).
+- Bundled DejaVu font files (.ttf) ship upstream without per-file license text;
+  their redistribution terms follow the DejaVu fonts project licenses. Tracked
+  for the M1 file-level license inventory (docs/license-inventory.md).

@@ -18,4 +18,7 @@ dist/
 *.qcow2
 
 # 本地验证输出(参考工程惯例:reports/ 只留本地)
-reports/
+/reports/
+
+# SDD 技能工作区(会话草稿,不入库)
+.superpowers/

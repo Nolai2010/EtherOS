@@ -12,3 +12,6 @@
 | `experience-library/README.md` | 教训库说明 |
 | `experience-library/lessons.md` | 教训记录(只增不改) |
 | `experience-library/active-rules.md` | 复发≥2次问题的强制规则(待首条) |
+| `tool-recognition-matrix.md` | M0 出口标准复核证据:25+ 工具原生路径/识别机制/验证状态矩阵 |
+| `reports/2026-10-06-toaruos-survey.md` | M1 底座调研:ToaruOS 许可/依赖/架构/GUI 事实与 SHA 锁定 |
+| `license-inventory.md` | M1 文件级许可清单:自有 MIT / 底座 UIUC-NCSA 与 4 子模块 / DejaVu 缺口;"纯 MIT"不宣布 |

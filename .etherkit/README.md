@@ -20,6 +20,8 @@
 | `frameworks/` | LangGraph/AutoGen/CrewAI/n8n/Zapier 节点提示词 | 不生成；构建编排图时直接引用 |
 | `agents-md/` | AGENTS.md 系工具的补充说明（Codex/OpenCode/Amazon Q/Zed/goose…原生读根 AGENTS.md，无需生成） | — |
 
+> 状态（2026-10-05）：五类均有实体——skills/（etheros-workflow）、agents-md/（README+codex-notes）、rules/（4）、prompts/（1）、frameworks/（1）。
+
 ## 使用规则（三条）
 
 1. **改规则只改 `.etherkit/` 内的源文件**，然后运行 `bash .etherkit/generate.sh`，把源文件与生成物一并提交。
