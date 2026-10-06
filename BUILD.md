@@ -45,15 +45,16 @@ make: *** [Makefile:9: build] Error 2
 
 失败原因与 T8 结论一致:底座 Makefile 依赖 Unix 工具(`mkdir -p` 等)与 Linux 工具链,Windows 的 WinGet make(Win32 进程模型)无法执行。**请勿在本机试图绕过。**
 
-## 4. CI 构建说明(预期,T13 落地)
+## 4. CI 构建说明(T13 已落地,与 `.github/workflows/ci.yml` build job 一致)
 
-CI build job 流程预期:
+早期设想的"裸 runner 自举工具链 + 直接 `make build`"经 round 3 实证不可行(libgcc_s.so.1 链出失败被吞,模式规则断链),已废弃。真实构建路径为**上游官方 Docker 镜像**:
 
-1. checkout 时启用 `submodules: recursive`(底座含 gcc/binutils-gdb 等大子模块,注意体积与超时);
-2. Linux runner 上直接执行 `make build`(入口即本仓 Makefile 的 `build` 目标:先 `check` 再转发底座);
-3. 构建成功后,将底座产出的 iso 作为 workflow artifact 上传。
+1. checkout 时启用 `submodules: recursive`(底座含 gcc/binutils-gdb 等大子模块);
+2. `docker pull toaruos/build-tools:1.99.x` —— 镜像自带预构建交叉工具链(`/root/gcc_local`,`x86_64-pc-toaru-gcc` 等)与全部 Linux 依赖;
+3. `docker run -v <workspace>/base/toaruos:/root/misaka -w /root/misaka -e LANG=C.UTF-8 toaruos/build-tools:1.99.x util/build-in-docker.sh` —— 由底座自带脚本 `util/build-in-docker.sh` 先链接工具链再执行上游 make;
+4. 构建成功后收集 `base/toaruos` 内的 `*.iso` / `misaka-kernel` / `*.igz` 上传为 workflow artifact(`etheros-boot-artifacts`)。
 
-细节(触发条件、缓存、超时、工具链自举时长)由 T13 落地。
+对应 job:`build`(timeout 90min);其后的 `vm-smoke` job 用 QEMU headless 启动产物 ISO 取证(见 `docs/reports/m1-vm-smoke.md`)。
 
 ## 5. 构建产物路径预期
 
@@ -62,4 +63,4 @@ CI build job 流程预期:
 - `image.iso`(ISO9660 可启动镜像,BIOS+EFI 双引导)——artifact 目标;
 - 中间产物:`misaka-kernel`(内核)、`ramdisk.igz`(压缩 ramdisk)。
 
-以上为 T8 调研读上游 Makefile/CI 所得的预期;实际路径以 CI 首次成功构建的输出为准,**T13 落地后回填本节**。
+以上产物路径已经 M1 CI 首次成功构建确认(见 §4 与 `docs/reports/2026-10-06-m1-acceptance.md` A3:A2)。

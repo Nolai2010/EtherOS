@@ -43,3 +43,23 @@ M1(底座基线)/M2(schema+配置)/M3(兼容桩)/M4(内建归位)/M5(CI 六项)/
 | M2-06 | kernel/ 本里程碑零改动 | `git diff v0.1.0-m1..HEAD -- kernel/` 为空 |
 | M2-07 | CI 新增插件校验 job/step 且通过 | CI 绿 |
 | M2-08 | docs/index.md 与新增文档一致(M0-05 不回退) | 比对 |
+
+## M1 · 底座基线(归档:经独立验收)
+
+> 本章节为**归档补录**(2026-10-06 追加):M1 验收执行时本文档尚无 M1 章节(见验收报告口径差异段 1),
+> 独立验收以 spec §4 M1 行为依据映射 A1–A9 实测,**9/9 PASS(含 A6 复验)**。
+> 验收报告:`docs/reports/2026-10-06-m1-acceptance.md`;分支 feat/m0-m1,HEAD 1318a54。
+> 以下条目按 spec §4 M1 行(目标/产出/出口标准)提炼,全部**已达成**。
+
+| 编号 | 标准(已达成) | 验证方式 |
+|---|---|---|
+| M1-01 | 上游 ToaruOS 已评估并拉取,submodule 锁定 `e77143fd14391d880c3ee11c1524252cdcbfd225`,无本地改动、无漂移 | `git submodule status` + `diff --submodule=log`(A1) |
+| M1-02 | CI 构建通道成立:upstream builder 镜像 `toaruos/build-tools:1.99.x` 内 `util/build-in-docker.sh` 构建,三 job(consistency/build/vm-smoke)全绿 | `gh run view`(run 37387961480,A2) |
+| M1-03 | `make` 成功(spec 出口标准①):产出 `image.iso`(7.6MB,BIOS+EFI 双引导)与 `misaka-kernel` | CI build job 日志(A3;本机 Windows 不可构建属已知 Ruling 4,证据取 CI) |
+| M1-04 | VM 启动见 GUI(spec 出口标准②):headless QEMU 下 serial 捕获 `livecd login:`(与 `apps/login.c:86` 互证)+ QMP screendump 真实帧 | artifact + CI 日志断言 `BOOT EVIDENCE OK`(A5;口径:台账 Task 11 裁定,差异段 3) |
+| M1-05 | VM 冒烟证据报告落盘 `docs/reports/m1-vm-smoke.md`,与 CI artifact 三方互证 | 文件比对(A6 FAIL 后补交 dbb6119,复验 PASS) |
+| M1-06 | 文件级许可清单 `docs/license-inventory.md` 覆盖全仓边界(spec 出口标准③):MIT/UIUC-NCSA/GPL 构建期边界/DejaVu 缺口如实记档,不宣布纯 MIT | 清单实读(A8;§6 风险 2 口径) |
+| M1-07 | REUSE 基线保持:REUSE.toml `**` 映射 + LICENSES/MIT.txt,SPDX 抽查命中 | lint 降级核验(A9;本机无 reuse 模块,差异段 4) |
+
+> 记档(非 FAIL,供终审裁量):aarch64 无独立构建证据(spec 目标句含之,出口标准字面未列,差异段 2)。
+> M1 关闭形态:tag `v0.1.0-m1`。

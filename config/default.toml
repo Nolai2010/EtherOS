@@ -1,6 +1,8 @@
-# config/default.toml —— EtherOS 运行期默认配置（M0 桩）
+# config/default.toml —— EtherOS 运行期默认配置(M2:插件启用段已生效)
 # 集中化、单目录、随仓库迁移;镜像内 /etc/os/config.toml 可覆盖本文件。
-# M2 起由内核/插件读取;当前仅声明结构,不含生效逻辑。
+# [plugins] 为插件启用唯一事实源(铁律 12),M2 于校验期生效:由 tools/validate_plugins.py
+# 强制与插件树一致(非法 id/不可卸载项即红,见 M2-04)。运行期按 enabled 装载属 M3。
+# [system]/[shell]/[compat] 仍仅声明结构,运行期生效逻辑随 M3+ 落地。
 
 [system]
 name = "EtherOS"
