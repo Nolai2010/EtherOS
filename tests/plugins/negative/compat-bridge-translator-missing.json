@@ -1,0 +1,12 @@
+{
+  "schema_version": "1",
+  "name": "compat-bridge-translator-missing",
+  "version": "0.1.0",
+  "type": "compat-bridge",
+  "uninstallable": true,
+  "payload": "../../../plugins/schema/plugin.schema.json",
+  "container": { "desktop": "windowed" },
+  "protocols": ["ipa"],
+  "translator": "plugins/compat/no-such/translator.py",
+  "capabilities": ["demo.compat-bridge"]
+}

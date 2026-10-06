@@ -70,6 +70,12 @@ def semantic_checks(path, manifest, schema_validator, names, file_mode):
             fail(path, "compat-bridge requires non-empty protocols (spec §2.2)")
         if not str(manifest.get("translator", "")).startswith("plugins/compat/"):
             fail(path, f"compat-bridge translator must be under plugins/compat/ (spec §2.2), got {manifest.get('translator')!r}")
+        elif isinstance(manifest.get("translator"), str):
+            # 职责 4c M3 增量(M3-02): 前缀合法的 translator 解析后必须真实存在为文件
+            # (spec §2.2 "translator 指向 plugins/compat/ 下的翻译运行时";M2 仅断言前缀,未断言存在性)
+            tpath = REPO / manifest["translator"]
+            if not tpath.is_file():
+                fail(path, f"compat-bridge translator '{manifest['translator']}' does not resolve to an existing file under repo root (spec §2.2, M3-02)")
     cat = next((p for p in Path(path).parts if p in CATEGORIES), "optional" if file_mode else None)
     if cat is not None:  # 职责 4d: 目录规则(spec §2.2/§3.2): builtin/dev ⇒ uninstallable==false,optional ⇒ true
         want = cat == "optional"
