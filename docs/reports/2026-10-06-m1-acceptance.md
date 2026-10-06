@@ -165,3 +165,14 @@ version = 1
 - 附带记档（非 FAIL）：aarch64 无独立构建证据（口径差异段 2）；acceptance-standard.md M1 章节缺失（口径差异段 1）。
 
 STATUS: FAIL
+
+## Re-verification
+
+- 日期：2026-10-06 ｜ 范围：仅复核 A6（不重开其他项）｜ 复核对象：补交 commit dbb6119
+- 核查 1（报告内容 vs CI 事实）：读 `docs/reports/m1-vm-smoke.md` 全文，与 CI 事实逐点一致 —— run 37387961480（commit 1318a54）三 job 全绿（6s / 2m25s / 24s）、serial-com2 摘录 `livecd login:`（含 `cat -v` 转义序列，与 A5 中 artifact 十六进制互证）、artifact `vm-smoke-evidence`。源码抽查：`base/toaruos/apps/login.c:86` 确为 `fprintf(stdout, "%s login: ", _hostname);`；`base/toaruos/build/x86_64.mk:66-67` 确含 `gettyargs,string="-a local /dev/ttyS1 115200 ${TERM}"` 与 `bootmode,string=headless`，均如报告所述。
+- 核查 2（commit 范围）：`git show dbb6119 --stat` → `docs/reports/m1-vm-smoke.md | 53 ++++` ，1 file changed, 53 insertions，仅新建该文件，未触碰其他内容。
+- 核查 3（push 状态）：`git status -sb` → `## feat/m0-m1...origin/feat/m0-m1`，与 origin 同步，无 ahead/behind。
+- 判定：**A6 PASS** —— 报告文件已落盘且内容与 CI 事实、源码引用、artifact 三方互证一致，提交范围最小且已达远端。
+- 附：本文件原 STATUS: FAIL 行保留不动（原始验收记录），以本节为准更新结论。
+
+FINAL: M1 acceptance 9/9 PASS (report docs/reports/2026-10-06-m1-acceptance.md + re-verification of A6)
