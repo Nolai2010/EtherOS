@@ -13,5 +13,10 @@
 | `experience-library/lessons.md` | 教训记录(只增不改) |
 | `experience-library/active-rules.md` | 复发≥2次问题的强制规则(待首条) |
 | `tool-recognition-matrix.md` | M0 出口标准复核证据:25+ 工具原生路径/识别机制/验证状态矩阵 |
+| `../plugins/schema/README.md` | 插件 manifest 契约 v1 字段语义表:类型/约束/spec §2.2/§3.2 依据、目录 uninstallable 规则、manifest 命名约定、validator 用法 |
+| `../tools/validate_plugins.py` | 插件 manifest 校验器(M2):`python3 tools/validate_plugins.py` 全树校验+config 一致性;`--file` 单文件;`--config` 覆盖配置 |
+| `reports/2026-10-06-m0-acceptance.md` | M0 独立验收报告(对抗式,13/13 通过) |
 | `reports/2026-10-06-toaruos-survey.md` | M1 底座调研:ToaruOS 许可/依赖/架构/GUI 事实与 SHA 锁定 |
+| `reports/2026-10-06-m1-acceptance.md` | M1 独立验收报告(9/9 通过,含 A6 复验;口径差异记档) |
+| `reports/m1-vm-smoke.md` | M1 VM 冒烟证据报告:QEMU headless 启动,serial `login:` 取证与 CI artifact 互证 |
 | `license-inventory.md` | M1 文件级许可清单:自有 MIT / 底座 UIUC-NCSA 与 4 子模块 / DejaVu 缺口;"纯 MIT"不宣布 |
