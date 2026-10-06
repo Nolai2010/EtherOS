@@ -19,4 +19,4 @@ allow_formats = []               # M3 桩: 本地格式白名单,如 ["demo-scri
 
 [plugins]
 # 插件启用唯一事实源(铁律 12)。builtin/dev 隐式启用;此处管理 optional:
-enabled = ["hello-plugin"]
+enabled = ["hello-plugin", "douyin"]
