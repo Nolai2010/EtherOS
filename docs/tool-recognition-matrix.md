@@ -8,8 +8,8 @@
 
 | 工具 | 原生路径 | 识别机制 | 验证状态 |
 |---|---|---|---|
-| Codex | `AGENTS.md`;`.codex/agents/builder.toml`、`.codex/agents/test-author.toml`、`.codex/agents/acceptance-checker.toml`、`.codex/agents/reviewer.toml`、`.codex/agents/visual-reviewer.toml` | AGENTS.md 原生读 + 专属文件(agents TOML) | script-verified |
-| GitHub Copilot | `AGENTS.md`;`.github/copilot-instructions.md`;`.github/skills/etheros-workflow/SKILL.md` | AGENTS.md 原生读 + 专属文件 | script-verified |
+| Codex | `AGENTS.md`;`.codex/agents/builder.toml`、`.codex/agents/test-author.toml`、`.codex/agents/acceptance-checker.toml`、`.codex/agents/reviewer.toml`、`.codex/agents/visual-reviewer.toml` | AGENTS.md 原生读 + 专属文件(agents TOML) | script-verified(tool-side behavior untested) |
+| GitHub Copilot | `AGENTS.md`;`.github/copilot-instructions.md`;`.github/skills/etheros-workflow/SKILL.md` | AGENTS.md 原生读 + 专属文件 | script-verified(tool-side behavior untested) |
 | Cursor | `AGENTS.md`;`.cursor/rules/01-project-context.mdc`;`.cursor/rules/04-license-workflow.mdc` | AGENTS.md 原生读 + 专属文件(.mdc 规则) | script-verified(tool-side behavior untested) |
 | Cline | `AGENTS.md`;`.clinerules/` | AGENTS.md 原生读 + 专属文件 | script-verified |
 | Devin | `AGENTS.md`;`devin.md` | AGENTS.md 原生读 + 专属文件(单文件) | script-verified |
@@ -23,7 +23,7 @@
 | goose | `AGENTS.md` | AGENTS.md 原生读 | script-verified |
 | OpenCode | `AGENTS.md` | AGENTS.md 原生读 | script-verified |
 | Gemini CLI | `AGENTS.md`;`GEMINI.md`(经 context.fileName 可配) | AGENTS.md 原生读 | script-verified |
-| Claude Code | `CLAUDE.md`;`.claude/rules/`;`.claude/skills/etheros-workflow/SKILL.md` | 专属文件(根 CLAUDE.md + .claude/rules + .claude/skills) | script-verified |
+| Claude Code | `CLAUDE.md`;`.claude/rules/`;`.claude/skills/etheros-workflow/SKILL.md` | 专属文件(根 CLAUDE.md + .claude/rules + .claude/skills) | script-verified(tool-side behavior untested) |
 | Trae | `.trae/rules/` | 专属文件 | script-verified |
 | Kiro | `.kiro/steering/` | 专属文件 | script-verified |
 | JetBrains AI | `.aiassistant/rules/` | 专属文件 | script-verified |

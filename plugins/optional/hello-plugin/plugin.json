@@ -1,0 +1,13 @@
+{
+  "schema_version": "1",
+  "name": "hello-plugin",
+  "version": "0.1.0",
+  "type": "native",
+  "uninstallable": true,
+  "payload": "payload/hello",
+  "container": {
+    "desktop": "windowed"
+  },
+  "capabilities": ["demo.hello"],
+  "resources": ["demo://hello"]
+}

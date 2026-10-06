@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "plugin.schema.json",
+  "title": "EtherOS plugin manifest schema v1",
+  "description": "EtherOS 插件 manifest 契约 v1(M2 锁定)。字段集合逐字锚定 spec/2026-10-05-etheros-dev-policy.md §2.2/§3.2,无 spec 外字段(§2.4 契约版本化:任何字段变更 = schema_version 变更)。目录级规则(builtin/dev ⇒ uninstallable=false,optional ⇒ true)与 payload 存在性属 validator 语义层(tools/validate_plugins.py),不在本 schema 表达。capabilities/tools/resources 为 MCP 式原语,仅字段形态对齐,M2 不做 MCP 协议/传输/会话语义。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "name",
+    "version",
+    "type",
+    "uninstallable",
+    "payload",
+    "container"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1",
+      "description": "契约版本,锁定 v1(spec §2.4)。"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "插件标识,全树唯一(spec §3.2 插件目录即插件);唯一性由 validator 语义层断言。"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$",
+      "description": "语义化版本(spec §1 发布策略)。"
+    },
+    "type": {
+      "enum": ["native", "compat-bridge"],
+      "description": "两类插件(spec §2.2):native 原生,compat-bridge 桥接外部格式。"
+    },
+    "uninstallable": {
+      "type": "boolean",
+      "description": "是否可卸载(spec §2.2/§3.2)。目录一致性规则:builtin/dev ⇒ false,optional ⇒ true,由 validator 断言。"
+    },
+    "payload": {
+      "type": "string",
+      "minLength": 1,
+      "description": "入口负载:相对本插件目录的路径(spec §2.2 \"同级二进制\");允许含 .. 的跨目录相对引用,存在性由 validator 断言。"
+    },
+    "container": {
+      "type": "object",
+      "description": "跨形态适配声明(spec §2.2):desktop 窗口化,mobile 全屏/分屏;desktop/mobile 至少其一(台账 Ruling:跨形态适配语义)。",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "desktop": {
+          "enum": ["windowed"]
+        },
+        "mobile": {
+          "enum": ["fullscreen", "split"]
+        }
+      }
+    },
+    "protocols": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "桥接的协议/格式列表(spec §2.2 douyin.json 示例);compat-bridge 必填非空,native 可选。"
+    },
+    "translator": {
+      "type": "string",
+      "pattern": "^plugins/compat/",
+      "description": "翻译运行时路径,前缀必须为 plugins/compat/(spec §2.2);compat-bridge 必填。"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "MCP 式原语:能力声明(spec §2.2);M2 不做语义路由。"
+    },
+    "tools": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "MCP 式原语:工具声明(spec §2.2);M2 不做语义路由。"
+    },
+    "resources": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "MCP 式原语:资源声明(spec §2.2);M2 不做语义路由。"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "type": { "const": "compat-bridge" } },
+        "required": ["type"]
+      },
+      "then": {
+        "required": ["protocols", "translator"],
+        "properties": {
+          "protocols": { "minItems": 1 }
+        }
+      }
+    }
+  ]
+}

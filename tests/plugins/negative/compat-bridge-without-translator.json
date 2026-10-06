@@ -1,0 +1,11 @@
+{
+  "schema_version": "1",
+  "name": "compat-bridge-without-translator",
+  "version": "0.1.0",
+  "type": "compat-bridge",
+  "uninstallable": true,
+  "payload": "../../../plugins/schema/plugin.schema.json",
+  "container": { "mobile": "fullscreen" },
+  "protocols": ["demo-format"],
+  "capabilities": ["demo.compat-bridge"]
+}

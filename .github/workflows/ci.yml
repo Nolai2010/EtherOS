@@ -41,6 +41,16 @@ jobs:
       - name: M0 empty build (skeleton check)
         run: make check
 
+  plugin-schema:
+    name: plugin manifest schema & config consistency (M2)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate plugin manifests against schema v1
+        run: |
+          python3 -m pip install --quiet jsonschema
+          python3 tools/validate_plugins.py
+
   build:
     # 上游官方构建路径:toaruos/build-tools 镜像自带预构建工具链 /root/gcc_local,
     # 由 util/build-in-docker.sh 链接后执行 make(见 docs/reports/2026-10-06-toaruos-survey.md)。
