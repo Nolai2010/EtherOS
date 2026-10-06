@@ -30,3 +30,16 @@
 ## M1+ · 占位
 
 M1(底座基线)/M2(schema+配置)/M3(兼容桩)/M4(内建归位)/M5(CI 六项)/M6(发布)的验收标准在对应里程碑启动时,由用户确认后追加。
+
+## M2 · 插件 schema、集中配置生效与开发插件自举
+
+| 编号 | 标准 | 验证方式 |
+|---|---|---|
+| M2-01 | plugin.schema.json v1 存在于 plugins/schema/,schema_version="1",含 spec §2.2 全部字段(container/uninstallable/payload/protocols/translator/capabilities/tools/resources),且自身通过 JSON Schema 元校验 | 元校验命令实跑 |
+| M2-02 | validator 存在且可执行:对仓库插件树校验 exit 0;对任一负例 manifest exit 非 0 并输出原因 | 正/负例实跑 |
+| M2-03 | ≥1 个示例插件(optional)通过 validator 全部检查(含目录 uninstallable 规则) | validator 实跑 + manifest 内容比对 |
+| M2-04 | 配置生效:config/default.toml [plugins] enabled 驱动插件启用;enabled 中不存在/非法 id → validator 失败 | 注入非法 id 实跑 |
+| M2-05 | plugins/dev/ 有 ≥1 个 dev 插件 manifest 通过 validator,且 dev 目录 uninstallable=false 规则被断言覆盖 | validator 实跑 |
+| M2-06 | kernel/ 本里程碑零改动 | `git diff v0.1.0-m1..HEAD -- kernel/` 为空 |
+| M2-07 | CI 新增插件校验 job/step 且通过 | CI 绿 |
+| M2-08 | docs/index.md 与新增文档一致(M0-05 不回退) | 比对 |
