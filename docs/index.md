@@ -26,3 +26,5 @@
 | `../plugins/compat/README.md` | compat 目录约定(M3):translator 集合地语义、translator 调用契约(--manifest/--payload、stub-plan-only)、路由链语义与 M3 stub 边界声明 |
 | `docs/reports/2026-10-06-m2-acceptance.md` | M2 独立验收报告（8/8 PASS） |
 | `docs/reports/2026-10-06-m3-acceptance.md` | M3 独立验收报告（8/8 PASS） |
+| `../plugins/builtin/README.md` | 内建不可卸载插件集(M4):清单层归位口径、首批成员表(shell/files/settings/mon 包装桩)、uninstallable:false 规则 |
+| `../tools/check_kernel_boundary.py` | 内核边界守卫(M4):`python3 tools/check_kernel_boundary.py` 断言 vendored 指针一致+kernel/ 白名单+格式字面量零命中+manifest 契约对齐;CI etherkit-consistency 每跑 |
