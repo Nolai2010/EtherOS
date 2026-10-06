@@ -4,7 +4,7 @@
 
 [system]
 name = "EtherOS"
-stage = "M0-skeleton"
+stage = "M2-plugins"
 
 [shell]
 # shell 是内建插件(plugins/builtin/),此处仅配置其容器策略偏好
@@ -14,3 +14,7 @@ default_container = "windowed"   # desktop: windowed | mobile: fullscreen|split
 # 兼容运行时开关(M3 起生效)
 enabled = false
 allow_formats = []               # M3 桩: 本地格式白名单,如 ["demo-script"]
+
+[plugins]
+# 插件启用唯一事实源(铁律 12)。builtin/dev 隐式启用;此处管理 optional:
+enabled = ["hello-plugin"]
