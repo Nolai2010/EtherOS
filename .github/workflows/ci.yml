@@ -51,6 +51,13 @@ jobs:
           python3 -m pip install --quiet jsonschema
           python3 tools/validate_plugins.py
 
+      - name: Protocol routing smoke (M3 route_plugins)
+        run: |
+          python3 tools/route_plugins.py --protocol ipa
+          ! python3 tools/route_plugins.py --protocol no-such-proto
+          python3 tools/route_plugins.py --run hello-plugin
+          python3 tools/route_plugins.py --run douyin
+
   build:
     # 上游官方构建路径:toaruos/build-tools 镜像自带预构建工具链 /root/gcc_local,
     # 由 util/build-in-docker.sh 链接后执行 make(见 docs/reports/2026-10-06-toaruos-survey.md)。
