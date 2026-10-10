@@ -82,6 +82,17 @@ M1(底座基线)/M2(schema+配置)/M3(兼容桩)/M4(内建归位)/M5(CI 六项)/
 | M5-06 | 逐 job 递进纪律：license→dco→lint→spec-consistency 顺序，每 job 先本地模拟再 CI 实跑、绿一上一下一 | 台账/run 序列证据 |
 | M5-07 | 旧四 job 零回退：etherkit-consistency/plugin-schema/build/vm-smoke 行为与 job 名不变 | CI 绿 + ci.yml diff 复核 |
 
+## M6 · 发布通道（tag → 自动构建 → GitHub Release，三形态产物）
+
+| 编号 | 标准 | 验证方式 |
+|---|---|---|
+| M6-01 | release.yml 存在：on push tags 'v*' + workflow_dispatch(dry_run) 双触发；build 步骤与 ci.yml build 同配方（toaruos/build-tools:1.99.x + util/build-in-docker.sh，注释互指） | 文件实读 + 双文件配方 diff 比对 |
+| M6-02 | 干跑演练成功：workflow_dispatch dry_run=true 实跑产出 etheros-release-artifacts（ISO/kernel/ramdisk）且未创建任何 Release | run 证据 + `gh release list` 无新增 |
+| M6-03 | 真实发布成功：v0.6.0-m6 tag push 触发 release.yml，GitHub Release 创建且资产 ≥3 件（image.iso + misaka-kernel + *.igz ramdisk），RELEASE_NOTES.md 为发布说明 | `gh release view v0.6.0-m6 --json assets,tagName,isPrerelease` |
+| M6-04 | 语义化版本策略落档：RELEASE_NOTES.md 载明 v0.x.0-mN 惯例与 v1.0.0 留 Phase 1 后用户决策；-mN Release 标记 prerelease | 文件实读 + Release isPrerelease==true |
+| M6-05 | OVA 降级记档：差异点 8（Phase 2）在验收报告与 RELEASE_NOTES 如实记录，不冒充 OVA 已支持 | 报告比对 |
+| M6-06 | Release 含可启动产物（spec 出口字面）：image.iso 与 ci.yml vm-smoke 消费产物同源同配方（可启动性链路背书） | 配方比对 + vm-smoke 绿证据 |
+
 ## M1 · 底座基线(归档:经独立验收)
 
 > 本章节为**归档补录**(2026-10-06 追加):M1 验收执行时本文档尚无 M1 章节(见验收报告口径差异段 1),

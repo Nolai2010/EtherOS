@@ -177,6 +177,7 @@ jobs:
     # 上游官方构建路径:toaruos/build-tools 镜像自带预构建工具链 /root/gcc_local,
     # 由 util/build-in-docker.sh 链接后执行 make(见 docs/reports/2026-10-06-toaruos-survey.md)。
     # 裸 runner 自举工具链在 round 3 实证不可行(libgcc_s.so.1 链出失败被吞,模式规则断链)。
+    # 改本配方必须同步 release.yml:build-release(同镜像 + util/build-in-docker.sh),M6-01 注释互指。
     name: build ToaruOS base (upstream builder image)
     runs-on: ubuntu-latest
     timeout-minutes: 90
