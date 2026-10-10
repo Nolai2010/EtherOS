@@ -29,3 +29,4 @@
 | `../plugins/builtin/README.md` | 内建不可卸载插件集(M4):清单层归位口径、首批成员表(shell/files/settings/mon 包装桩)、uninstallable:false 规则 |
 | `../tools/check_kernel_boundary.py` | 内核边界守卫(M4):`python3 tools/check_kernel_boundary.py` 断言 vendored 指针一致+kernel/ 白名单+格式字面量零命中+manifest 契约对齐;CI etherkit-consistency 每跑 |
 | `docs/reports/2026-10-06-m4-acceptance.md` | M4 独立验收报告（9/9 PASS） |
+| `docs/reports/2026-10-06-m5-acceptance.md` | M5 独立验收报告（7/7 PASS，3 条 PASS-with-note；含门禁消音红线复核） |

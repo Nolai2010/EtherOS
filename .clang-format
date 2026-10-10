@@ -1,0 +1,16 @@
+# EtherOS 自有 C 代码 clang-format 基线(M5 lint job)。
+# 作用域:仅 kernel/ tools/ plugins/ —— base/(上游 toaruos) 由 lint job 的
+# find 起点结构性排除,绝不扫描上游代码。
+# DeriveLineEnding:保留被格式化文件自身的行尾,避免本地工作区 CRLF 与
+# CI checkout LF 的行尾差异造成 dry-run 假告警(不是放宽检查)。
+# Align* Consecutive:保留本仓手写代码的宏/声明对齐意图,使基线提交的
+# 排版改动最小化(仅函数签名因 ColumnLimit=100 放得下而合并为单行)。
+---
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 100
+DeriveLineEnding: true
+AlignConsecutiveAssignments: Consecutive
+AlignConsecutiveDeclarations: Consecutive
+AlignConsecutiveMacros: Consecutive
+...

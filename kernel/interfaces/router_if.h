@@ -51,10 +51,10 @@ typedef struct etheros_route_query {
 /* Result codes                                                        */
 /* ------------------------------------------------------------------ */
 
-#define ETHEROS_OK           0    /* success */
-#define ETHEROS_ENOENT      (-1)  /* zero match / unknown plugin or domain */
-#define ETHEROS_EAMBIGUOUS  (-2)  /* multiple plugins declare the queried protocol */
-#define ETHEROS_EINVAL      (-3)  /* invalid query, dangling payload ref, or bad domain */
+#define ETHEROS_OK         0    /* success */
+#define ETHEROS_ENOENT     (-1) /* zero match / unknown plugin or domain */
+#define ETHEROS_EAMBIGUOUS (-2) /* multiple plugins declare the queried protocol */
+#define ETHEROS_EINVAL     (-3) /* invalid query, dangling payload ref, or bad domain */
 
 /* ------------------------------------------------------------------ */
 /* Primitive 1: route                                                  */
@@ -64,8 +64,7 @@ typedef struct etheros_route_query {
 /*   multiple matches => ETHEROS_EAMBIGUOUS (never silently pick one); */
 /*   NULL protocol => ETHEROS_EINVAL.                                  */
 /* ------------------------------------------------------------------ */
-int etheros_route(const etheros_route_query *query,
-                  etheros_plugin_id *out_plugin_id);
+int etheros_route(const etheros_route_query *query, etheros_plugin_id *out_plugin_id);
 
 /* ------------------------------------------------------------------ */
 /* Primitive 2: load                                                   */
@@ -76,9 +75,7 @@ int etheros_route(const etheros_route_query *query,
 /*   Unknown plugin_id => ETHEROS_ENOENT; dangling payload ref or      */
 /*   unestablished domain => ETHEROS_EINVAL.                           */
 /* ------------------------------------------------------------------ */
-int etheros_load(etheros_plugin_id plugin_id,
-                 etheros_payload_ref payload,
-                 etheros_domain_t domain);
+int etheros_load(etheros_plugin_id plugin_id, etheros_payload_ref payload, etheros_domain_t domain);
 
 /* ------------------------------------------------------------------ */
 /* Primitive 3: isolate                                                */
