@@ -118,7 +118,11 @@ jobs:
       - name: clang-format (C under kernel/ tools/ plugins/ only)
         run: find kernel tools plugins \( -name '*.c' -o -name '*.h' \) -type f | xargs -r clang-format --dry-run --Werror
       - name: cppcheck (kernel/)
-        run: cppcheck --enable=warning --error-exitcode=1 kernel/
+        # 目录形式实证失效(run 38069483688):"could not find or open any of the
+        # paths given." —— kernel/ 下只有 .h,cppcheck 扫目录时找不到可检文件,
+        # 属"找不到文件"而非真实告警,故改用显式文件列表(风险 A 预裁定)。
+        # 未放宽 --error-exitcode,未加 --suppress 掩盖真实告警。
+        run: find kernel \( -name '*.c' -o -name '*.h' \) -print0 | xargs -0 -r cppcheck --language=c --enable=warning --error-exitcode=1
       - name: pyflakes (python tools)
         run: python3 -m pyflakes tools/*.py plugins/compat/stub-runtime/*.py
 
