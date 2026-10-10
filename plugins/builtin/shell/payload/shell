@@ -1,0 +1,4 @@
+#!/bin/sh
+# M4 builtin wrapper-stub (约束 19): 以插件形态声明 shell 能力(清单层归位,差异点 1);
+# 上游实体(终端程序)在 vendored 底座 base/toaruos 内部原样保留,本桩不冒充实体的"运行"。
+echo "EtherOS builtin stub: shell (wrapper declaration; upstream entity lives in base/toaruos, not relocated by M4)"

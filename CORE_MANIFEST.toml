@@ -1,6 +1,6 @@
-# EtherOS 内核边界声明（唯一不可插件化的部分）
-# 规则:本清单之外的一切"系统能力"必须以插件形式存在于 plugins/。
-# 本文件改动视同架构级变更,必须走 spec 修订 + 独立 review。
+# EtherOS 内核边界声明（唯一不可插件化的部分）—— M4 收紧版：仅声明内核边界。
+# 规则：本清单之外的一切"系统能力"必须以插件形式存在于 plugins/（声明层即 plugins/builtin|optional manifests）。
+# 本文件改动视同架构级变更，必须走 spec 修订 + 独立 review + 用户追认。
 
 [system]
 name = "EtherOS"
@@ -24,11 +24,8 @@ forbidden_in_kernel = [
     "driver",           # 驱动(驱动也是插件)
 ]
 
-[shipped_plugins]
-# 内建不可卸载插件(本质仍是插件,位置 plugins/builtin/):
-uninstallable = false
-# 成员示例: shell / window-manager / file-manager / settings / perf-monitor / drivers / services
-
-[optional_plugins]
-# 可选可替换插件(位置 plugins/optional/):
-uninstallable = true
+[vendored_base]
+# vendored 底座指针（M1 锁定；上游实体原样保留，不在本清单声明——内核边界之外皆插件）
+path = "base/toaruos"
+pinned = "e77143fd14391d880c3ee11c1524252cdcbfd225"
+license = "UIUC/NCSA (upstream as-is; see NOTICE & docs/license-inventory.md)"

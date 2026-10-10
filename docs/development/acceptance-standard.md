@@ -57,6 +57,19 @@ M1(底座基线)/M2(schema+配置)/M3(兼容桩)/M4(内建归位)/M5(CI 六项)/
 | M3-07 | CI plugin-schema job 含 M3 校验步骤且通过 | CI 绿 |
 | M3-08 | docs/index.md 与 plugins/compat/README 更新一致（M0-05 不回退） | 比对 |
 
+## M4 · 内建插件归位（清单层归位：builtin 实体 + 内核边界收紧）
+
+| 编号 | 标准 | 验证方式 |
+|---|---|---|
+| M4-01 | plugins/builtin/ 有 ≥4 个内建插件实体（shell/files/settings/mon），uninstallable:false，通过 validator 全部检查；payload 为包装桩脚本可 sh 实跑并输出 stub 声明（约束 19，不冒充实体的"运行"） | validator 全树实跑 + payload 实跑断言 stub 输出 |
+| M4-02 | CORE_MANIFEST.toml 收紧为仅声明内核边界：[kernel] capabilities 与禁入清单保留（M0-07 不回退），capabilities 与 kernel/interfaces 三原语对齐；[vendored_base] 指针 pinned==submodule 实际 SHA；[shipped_plugins]/[optional_plugins] 分节移除（语义由 plugins/builtin manifests 承载） | 文件实读 + grep + `git -C base/toaruos rev-parse HEAD` 比对 |
+| M4-03 | vendored 树零改动：base/toaruos submodule 指针未动、无本地漂移 | `git diff v0.3.0-m3..HEAD -- base/toaruos` 为空 + `git diff --submodule=log` 为空 |
+| M4-04 | kernel/ 零格式知识不回退且无实现代码：格式扩展名字面量 grep 零命中；kernel/ 文件清单仅 README + interfaces/* | grep + `git ls-files kernel/` 清单比对 |
+| M4-05 | 内核边界守卫工具 tools/check_kernel_boundary.py 存在且 stdlib only；对现状树 exit 0；注入反例（kernel/ 混入实现文件 / pinned 失配 / 能力清单缺项）exit 非 0 且输出原因 | 守卫正/反例实跑 |
+| M4-06 | CI 含 vendored 零改动 + kernel 边界断言 step 且通过；plugin-schema job 对 builtin manifests 自动扫描通过 | CI 绿 |
+| M4-07 | 零 schema 变更：plugins/schema/plugin.schema.json 相对 v0.3.0-m3 diff 为空；M2/M3 正负例行为零回退 | diff 为空 + 旧负例复跑全 rejected |
+| M4-08 | docs 一致：plugins/builtin/README 成员表更新、docs/index.md 登记新条目（M0-05 不回退） | 比对 |
+
 ## M1 · 底座基线(归档:经独立验收)
 
 > 本章节为**归档补录**(2026-10-06 追加):M1 验收执行时本文档尚无 M1 章节(见验收报告口径差异段 1),

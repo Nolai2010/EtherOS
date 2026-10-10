@@ -41,6 +41,13 @@ jobs:
       - name: M0 empty build (skeleton check)
         run: make check
 
+      - name: "Kernel boundary guard (M4: vendored pin + kernel whitelist + format literals)"
+        # 仓库卫生门扩展(计划 M4-T5):vendored 指针一致 + kernel/ 白名单 + 格式字面量零命中
+        # + manifest 契约对齐。本 job checkout 为非递归(submodule 未初始化),守卫对 vendored
+        # 指针的检查走 git ls-tree HEAD(读 gitlink SHA),不受影响;仅"submodule 已初始化才
+        # 可做"的本地漂移子检查会打印 SKIP 明示跳过(非静默),其余检查照常执行,不许静默跳过。
+        run: python3 tools/check_kernel_boundary.py
+
   plugin-schema:
     name: plugin manifest schema & config consistency (M2)
     runs-on: ubuntu-latest

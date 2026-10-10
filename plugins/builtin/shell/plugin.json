@@ -1,0 +1,10 @@
+{
+  "schema_version": "1",
+  "name": "shell",
+  "version": "0.1.0",
+  "type": "native",
+  "uninstallable": false,
+  "payload": "payload/shell",
+  "container": { "desktop": "windowed" },
+  "capabilities": ["sys.shell"]
+}
