@@ -93,6 +93,18 @@ M1(底座基线)/M2(schema+配置)/M3(兼容桩)/M4(内建归位)/M5(CI 六项)/
 | M6-05 | OVA 降级记档：差异点 8（Phase 2）在验收报告与 RELEASE_NOTES 如实记录，不冒充 OVA 已支持 | 报告比对 |
 | M6-06 | Release 含可启动产物（spec 出口字面）：image.iso 与 ci.yml vm-smoke 消费产物同源同配方（可启动性链路背书） | 配方比对 + vm-smoke 绿证据 |
 
+## M7 · Phase 2 开门（遗留清零 + 门禁硬化 + 装载契约）
+
+| 编号 | 标准 | 验证方式 |
+|---|---|---|
+| M7-01 | spec-consistency 硬化：里程碑章节头判定改行首锚定（`^## M<N>` 形式），空候选集不再静默通过（至少断言解析到的路径候选数 ≥1） | CI 绿 + 反例实证（删真实 `## M1` 章节 → 必须 FAIL） |
+| M7-02 | lint 空集断言：clang-format 与 cppcheck 两步各自断言目标文件数 ≥1，目标为空不再 exit 0 静默通过（Q1 遗留） | CI 绿 + 空集反例实证 |
+| M7-03 | 贡献流程文档：CONTRIBUTING.md 载明 DCO 签核（`git commit -s`）、分支惯例（每里程碑一短命分支 + merge --no-ff）、验收闭环（Builder≠Reviewer，禁止自评）；index 登记 | 文件实读 + index 悬空检查绿 |
+| M7-04 | 装载契约：kernel/interfaces/loader_if.h + loader-contract.md 为格式无关装载契约，kernel/ 内无格式字面量（既有的 check_kernel_boundary 守卫覆盖） | 文件实读 + 守卫绿 |
+| M7-05 | 用户态装载器：tools/load_plugins.py 按 config/default.toml（[plugins] enabled + builtin/dev 隐式启用）解析 manifest 与依赖顺序，输出结构化装载计划 JSON；**如实声明 stub 未真正装载**（与 translator 桩同口径）；含负例 | CLI 实跑 + 负例 rejected |
+| M7-06 | 可行性调研：docs/reports/2026-10-11-phase2-feasibility.md 给出 aarch64 构建与 OVA 打包的结论（建议做/不做）、依据与成本量级；**M7 不落地实现** | 报告实读 + ci.yml/release.yml diff 为空证明未落地 |
+| M7-07 | 旧门禁零回退：M5 八 job 与 M6 release.yml 行为与 job 名不变 | CI 绿 + diff 复核 |
+
 ## M1 · 底座基线(归档:经独立验收)
 
 > 本章节为**归档补录**(2026-10-06 追加):M1 验收执行时本文档尚无 M1 章节(见验收报告口径差异段 1),
