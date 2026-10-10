@@ -88,7 +88,11 @@ jobs:
         run: |
           set -e
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            RANGE="origin/${{ github.base_ref }}..${{ github.sha }}"
+            # Use the PR event's own SHAs: actions/checkout may not create
+            # refs/remotes/origin/<base>, so origin/<base_ref> is not guaranteed
+            # to resolve (actions/checkout#2219). base.sha is an ancestor of the
+            # fetched merge ref and is present with fetch-depth: 0.
+            RANGE="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
             COMMITS=$(git log --no-merges --format=%H "$RANGE")
           else
             BEFORE="${{ github.event.before }}"
@@ -102,7 +106,7 @@ jobs:
           for sha in $COMMITS; do
             git log -1 --format=%B "$sha" | grep -q "Signed-off-by:" || { echo "::error::commit $sha missing Signed-off-by"; fail=1; }
           done
-          echo "checked $(echo "$COMMITS" | wc -l) non-merge commit(s)"
+          echo "checked $(printf '%s\n' "$COMMITS" | grep -c '[0-9a-f]') non-merge commit(s)"
           exit $fail
 
   lint:
