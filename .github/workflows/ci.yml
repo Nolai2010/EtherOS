@@ -120,13 +120,24 @@ jobs:
       - name: Install tools
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang-format cppcheck && python3 -m pip install --quiet pyflakes
       - name: clang-format (C under kernel/ tools/ plugins/ only)
-        run: find kernel tools plugins \( -name '*.c' -o -name '*.h' \) -type f | xargs -r clang-format --dry-run --Werror
+        # M7-3 空集断言:旧写法 `find … | xargs -r …` 在目标集为空时 xargs 不执行
+        # 任何东西、退出 0 —— 门禁静默通过(kernel/ tools/ plugins/ 被改名或清空
+        # 也不会红)。改为先收集列表并断言非空,再把列表喂给工具。
+        # 未放宽 --Werror;find 起点仍严格限定 kernel tools plugins(结构性排除 base/)。
+        run: |
+          FILES=$(find kernel tools plugins \( -name '*.c' -o -name '*.h' \) -type f)
+          test -n "$FILES" || { echo "::error::no C/H files found under kernel/ tools/ plugins/"; exit 1; }
+          printf '%s\n' "$FILES" | xargs clang-format --dry-run --Werror
       - name: cppcheck (kernel/)
         # 目录形式实证失效(run 38069483688):"could not find or open any of the
         # paths given." —— kernel/ 下只有 .h,cppcheck 扫目录时找不到可检文件,
         # 属"找不到文件"而非真实告警,故改用显式文件列表(风险 A 预裁定)。
         # 未放宽 --error-exitcode,未加 --suppress 掩盖真实告警。
-        run: find kernel \( -name '*.c' -o -name '*.h' \) -print0 | xargs -0 -r cppcheck --language=c --enable=warning --error-exitcode=1
+        # M7-3 空集断言:同上,目标集为空必须先红而非静默通过。
+        run: |
+          FILES=$(find kernel \( -name '*.c' -o -name '*.h' \) -type f)
+          test -n "$FILES" || { echo "::error::no C/H files found under kernel/"; exit 1; }
+          printf '%s\0' "$FILES" | xargs -0 cppcheck --language=c --enable=warning --error-exitcode=1
       - name: pyflakes (python tools)
         run: python3 -m pyflakes tools/*.py plugins/compat/stub-runtime/*.py
 
@@ -171,7 +182,10 @@ jobs:
           # 于是 `## M1+ · 占位` 二者皆不满足(不再掩盖真 M1 的缺失),
           # 而 `## M1 · 底座基线(归档...)` 满足后者,仍被认可。
           std_lines = (docs / "development" / "acceptance-standard.md").read_text(encoding="utf-8").splitlines()
-          for m in ("M0", "M1", "M2", "M3", "M4", "M5"):
+          # M7-01 白名单扩到 M7:旧元组停在 M5,M6/M7 两个已入库章节不受本道门禁
+          # 保护(删了也不红)。二者当前确实存在于 acceptance-standard.md,扩了是
+          # 门禁增强、不会假红。方向只许更严。
+          for m in ("M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7"):
             if not any(line == f"## {m}" or line.startswith(f"## {m} ") for line in std_lines):
               fails.append(f"acceptance-standard.md missing section: {m}")
           # (c) spec anchor referenced by .etherkit/AGENTS.md
