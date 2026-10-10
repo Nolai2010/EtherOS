@@ -65,6 +65,19 @@ jobs:
           python3 tools/route_plugins.py --run hello-plugin
           python3 tools/route_plugins.py --run douyin
 
+  license:
+    name: license (reuse lint, submodules excluded per spec 5 / risk 2)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Defensive assert base/toaruos stays a submodule
+        run: git config -f .gitmodules --get submodule.base/toaruos.path | grep -qx "base/toaruos"
+      - name: reuse lint (default excludes submodules; upstream licenses via NOTICE & docs/license-inventory.md)
+        run: |
+          python3 -m pip install --quiet reuse
+          reuse --version
+          reuse lint
+
   build:
     # 上游官方构建路径:toaruos/build-tools 镜像自带预构建工具链 /root/gcc_local,
     # 由 util/build-in-docker.sh 链接后执行 make(见 docs/reports/2026-10-06-toaruos-survey.md)。
