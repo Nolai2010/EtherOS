@@ -78,6 +78,33 @@ jobs:
           reuse --version
           reuse lint
 
+  dco:
+    name: dco (Signed-off-by on every commit, merges exempt)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Check Signed-off-by
+        run: |
+          set -e
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            RANGE="origin/${{ github.base_ref }}..${{ github.sha }}"
+            COMMITS=$(git log --no-merges --format=%H "$RANGE")
+          else
+            BEFORE="${{ github.event.before }}"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              COMMITS=$(git log --no-merges --format=%H)   # 新分支首推：全历史
+            else
+              COMMITS=$(git log --no-merges --format=%H "$BEFORE..${{ github.event.after }}")
+            fi
+          fi
+          fail=0
+          for sha in $COMMITS; do
+            git log -1 --format=%B "$sha" | grep -q "Signed-off-by:" || { echo "::error::commit $sha missing Signed-off-by"; fail=1; }
+          done
+          echo "checked $(echo "$COMMITS" | wc -l) non-merge commit(s)"
+          exit $fail
+
   build:
     # 上游官方构建路径:toaruos/build-tools 镜像自带预构建工具链 /root/gcc_local,
     # 由 util/build-in-docker.sh 链接后执行 make(见 docs/reports/2026-10-06-toaruos-survey.md)。
