@@ -70,6 +70,18 @@ M1(底座基线)/M2(schema+配置)/M3(兼容桩)/M4(内建归位)/M5(CI 六项)/
 | M4-07 | 零 schema 变更：plugins/schema/plugin.schema.json 相对 v0.3.0-m3 diff 为空；M2/M3 正负例行为零回退 | diff 为空 + 旧负例复跑全 rejected |
 | M4-08 | docs 一致：plugins/builtin/README 成员表更新、docs/index.md 登记新条目（M0-05 不回退） | 比对 |
 
+## M5 · CI 点亮（spec §5 六项补齐 → 八 job 全绿）
+
+| 编号 | 标准 | 验证方式 |
+|---|---|---|
+| M5-01 | license job 存在且绿：reuse lint 通过（CI 内 pip install reuse；默认排除 submodule，base/ 上游以 license-inventory/NOTICE 口径为准）；含"base/ 恒为 submodule"防御断言 | CI 绿 + 本地（或 CI）reuse lint 证据 |
+| M5-02 | dco job 存在且绿：PR 与 push 双事件口径均覆盖 Signed-off-by 校验（merge commit 豁免记档） | CI 绿 + 正/反例证据 |
+| M5-03 | lint job 存在且绿：clang-format --dry-run（自有 C）+ cppcheck（kernel/）+ pyflakes（tools/*.py 等）全过；扫描结构性排除 base/ | CI 绿 |
+| M5-04 | spec-consistency job 存在且绿：docs/index.md 悬空检查 + acceptance-standard 里程碑章节存在性 + .etherkit/AGENTS.md spec 引用存在性；与 etherkit-consistency 分工无重复门禁（记档） | CI 绿 |
+| M5-05 | ci.yml 达八 job（etherkit-consistency/plugin-schema/license/dco/lint/spec-consistency/build/vm-smoke），push/PR 全绿 | `gh run view` job 清单 + 全 success |
+| M5-06 | 逐 job 递进纪律：license→dco→lint→spec-consistency 顺序，每 job 先本地模拟再 CI 实跑、绿一上一下一 | 台账/run 序列证据 |
+| M5-07 | 旧四 job 零回退：etherkit-consistency/plugin-schema/build/vm-smoke 行为与 job 名不变 | CI 绿 + ci.yml diff 复核 |
+
 ## M1 · 底座基线(归档:经独立验收)
 
 > 本章节为**归档补录**(2026-10-06 追加):M1 验收执行时本文档尚无 M1 章节(见验收报告口径差异段 1),
