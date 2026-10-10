@@ -9,6 +9,7 @@
 - **工作树**：验收前 `git status --short` 为空；验收过程中未落任何临时文件进仓库；本报告为本次唯一新增
 - **未触碰任何仓库文件**：除本报告外零改动，因而不修任何问题——只记录，交由控制器裁定
 - **`gh` 一律 `--repo Nolai2010/EtherOS`**（`gh` 不接受 `-C`）；Python `python3`；本机 Windows，构建类证据取 CI
+- **补记（本次修订）**：原 M6-02 / M6-03 两条 PENDING 现已实跑完成，本文件就这两条补出终判并回填结论表（见 §M6-02 / §M6-03 / §结论）。补记为**追加修订**，不改写原轮已判定的 M6-01 / 04 / 05 / 06 四条结论，仅按"已有真实产物与 vm-smoke 绿证据"这一新事实重写原遗留 9。补记阶段同样零仓库文件改动（本报告仍为唯一改动对象）
 
 ---
 
@@ -105,34 +106,166 @@ release.yml → ci.yml 方向 3 处指引 ✅；**ci.yml → release.yml 方向�
 
 ## M6-02 干跑演练（workflow_dispatch dry_run=true）
 
-**PENDING（待 run 证据，非 PASS 亦非 FAIL）**
+> **补记终判（原为 PENDING）**：原 PENDING 的成因是环境约束（`gh workflow run` 要求 workflow 已存在于默认分支，在 `feat/m6-release` 上 dispatch 实测报 `HTTP 404: workflow release.yml not found on the default branch`）——非实现缺陷。现 `feat/m6-release` 已 `git merge --no-ff` 进 main（合并提交 `b3c2fdd`），干跑已实跑完毕，据实出具终判如下。
 
-理由为环境约束而非实现缺陷，按控制器已裁定口径记录：`gh workflow run` 要求目标 workflow 已存在于**默认分支**，在 `feat/m6-release` 上 dispatch 实测报 `HTTP 404: workflow release.yml not found on the default branch`；而默认分支 `main` 当前仍为 `0395167`，未含 `release.yml`。故干跑只能待 merge 进 main 后执行。
-
-本轮未执行 dispatch、未伪造任何 run 证据。待补取证命令（merge 后）：
+### 前提：merge 后 main 的基线
 
 ```
-gh --repo Nolai2010/EtherOS workflow run release.yml --ref main -f dry_run=true
-gh --repo Nolai2010/EtherOS run watch <run-id>
-gh --repo Nolai2010/EtherOS release list --limit 5      # 断言无新增 Release
+$ git -C I:/etheros branch --show-current
+main
+$ git -C I:/etheros log --oneline -1
+b3c2fdd Merge feat/m6-release: M6 release channel + Phase 1 closeout
 ```
 
----
+main CI run `38076005107`（event=push, headBranch=main, conclusion=success）八 job 结论：
+
+```
+dco (Signed-off-by on every commit, merges exempt) | success
+build ToaruOS base (upstream builder image) | success
+spec & docs reference consistency (anti context-drift) | success
+lint (EtherOS-owned code only; base/ structurally excluded) | success
+etherkit single-source consistency | success
+license (reuse lint, submodules excluded per spec 5 / risk 2) | success
+plugin manifest schema & config consistency (M2) | success
+vm smoke (QEMU headless boot evidence) | success
+```
+
+基线干净（八 job 全 success，含 vm smoke）✅ —— 后续的干跑 / 真实发布都建立在这条 merge 后的 main 之上。
+
+### 实跑取证
+
+```
+$ gh --repo Nolai2010/EtherOS run view 38076253475 --json status,conclusion,headBranch,event,displayTitle
+{"conclusion":"success","displayTitle":"release","event":"workflow_dispatch","headBranch":"main","status":"completed"}
+
+$ gh --repo Nolai2010/EtherOS run view 38076253475 --json jobs --jq '.jobs[]|"\(.name) | \(.conclusion)"'
+build release artifacts (same recipe as ci.yml:build) | success
+publish-release | skipped
+```
+
+触发方式 `workflow_dispatch` ✅、基准分支 `main` ✅、run 总结论 success ✅；两 job 结论与"干跑"预期**完全吻合**：`build release artifacts` **success**、`publish-release` **skipped** ✅❗
+
+`build release artifacts`（job id `114283697628`）的 collect 步骤原始日志摘录：
+
+```
+Run mkdir -p artifacts
+  mkdir -p artifacts
+  find base/toaruos -maxdepth 2 -type f \( -name "*.iso" -o -name "misaka-kernel" -o -name "*.igz" \) -exec cp {} artifacts/ \; || true
+  ls -la artifacts/
+  test -f artifacts/image.iso
+total 14308
+-rw-r--r--  1 runner runner 7593984 Oct 10 18:35 image.iso
+-rwxr-xr-x  1 runner runner  274384 Oct 10 18:35 misaka-kernel
+-rw-r--r--  1 runner runner 6771662 Oct 10 18:35 ramdisk.igz
+```
+
+`test -f artifacts/image.iso` 硬断言在该步骤内且步骤 conclusion=success → **断言通过** ✅；三形态产物齐备（`image.iso` / `misaka-kernel` / `ramdisk.igz`）✅，其中 `image.iso` 与 `misaka-kernel` 由上游配方（`util/build-in-docker.sh`，与 ci.yml 同配方，见 M6-01 md5 全等）产出。
+
+```
+$ gh api repos/Nolai2010/EtherOS/actions/runs/38076253475/artifacts --jq '.artifacts[]|"\(.name) | \(.size_in_bytes) bytes"'
+etheros-release-artifacts | 13671702 bytes
+```
+
+artifact 名 `etheros-release-artifacts`、大小 **13671702 bytes** ✅（与 upload 步骤日志 `Final size is 13671702 bytes. Artifact ID is 11678845622`、`With the provided path, there will be 3 files uploaded` 互证 —— 三件齐备，非"看起来齐"）。
+
+### 关键负向断言：干跑未创建任何 Release
+
+```
+$ gh --repo Nolai2010/EtherOS release list --limit 20
+EtherOS v0.6.0-m6	Pre-release	v0.6.0-m6	2026-10-10T18:40:02Z
+```
+
+全仓库 Release 列表**仅 1 条**，即 `v0.6.0-m6`，`publishedAt` = `2026-10-10T18:40:02Z`。干跑 run `38076253475` 完成于 `2026-10-10T18:35:56Z`，早于该 Release 五分钟；且该 Release 另有其主（见 M6-03，run `38076522422` 的 publish job 创建）。→ **干跑未创建任何 Release** ✅❗ 这正是"干跑"的语义核心：`publish-release` 被 `if: github.event_name == 'push'` 挡下，只构建不发布。
+
+判定：**PASS** —— 干跑 gate 的三项（① build job success ② publish job skipped ③ 三形态产物齐备且 artifact 上传成功）+ 一项负向断言（Release 列表未新增）全部由 `gh` 实跑输出坐实，无一项依赖推理或他人声明。原 PENDING 所依赖的环境约束已解除，且解除后行为与预测一致。
 
 ## M6-03 真实发布（v0.6.0-m6 tag push）
 
-**PENDING（待 run 证据，非 PASS 亦非 FAIL）**
+> **补记终判（原为 PENDING）**：同上，依赖 merge 进 main。原轮已确认"尚未执行"三处证据齐备（`git tag --points-at HEAD` 空、`ls-remote --tags` 最新为 `v0.5.0-m5`、`gh release view` → `release not found`，无偷偷预建嫌疑）。现 tag 已推送、release.yml 已实跑，据实出具终判如下。
 
-同上，依赖 merge 进 main。当前 `git tag --points-at HEAD` 为空、`git ls-remote --tags origin` 最新仍为 `v0.5.0-m5`、`gh release view v0.6.0-m6` → `release not found`，与"尚未执行"完全吻合 ✅（无偷偷预建的嫌疑）。
-
-待补取证命令（merge 后）：
+### tag 与 commit 的对应关系（先确认不是"挂错对象"）
 
 ```
-git tag -a v0.6.0-m6 -m "..." && git push origin v0.6.0-m6
-gh --repo Nolai2010/EtherOS release view v0.6.0-m6 --json assets,tagName,isPrerelease
+$ git ls-remote --tags origin | grep -i m6
+b3da4b57a6070291614e781afe1a96ab1333be0c	refs/tags/v0.6.0-m6
+b3c2fddd6ef01c46d70c7db03c9390fbf74f643a	refs/tags/v0.6.0-m6^{}
+
+$ git -C I:/etheros rev-parse v0.6.0-m6
+b3da4b57a6070291614e781afe1a96ab1333be0c
 ```
 
-判定门槛：资产 ≥3 件（`image.iso` + `misaka-kernel` + `*.igz`）、`isPrerelease == true`、发布说明取自 `RELEASE_NOTES.md`。
+tag 为**附注 tag**（有 `^{}` 剥离行），对象 `b3da4b5` 剥离后 → **b3c2fdd**，即 main 上的合并提交 `b3c2fdd` ✅。本地 `rev-parse` 与远端一致 → 无本地/远端分叉。Release 侧：
+
+```
+$ gh --repo Nolai2010/EtherOS release view v0.6.0-m6 --json tagName,targetCommitish,createdAt,publishedAt
+{"createdAt":"2026-10-10T18:37:20Z","publishedAt":"2026-10-10T18:40:02Z","tagName":"v0.6.0-m6","targetCommitish":"main"}
+```
+
+tagName 与 tag 名逐字一致 ✅；targetCommitish = `main` ✅（Release 锚定默认分支，非游离对象）。**Release 与 tag 对应无误**。
+
+### 实跑取证
+
+```
+$ gh --repo Nolai2010/EtherOS run view 38076522422 --json status,conclusion,headBranch,event,displayTitle
+{"conclusion":"success","displayTitle":"Merge feat/m6-release: M6 release channel + Phase 1 closeout","event":"push","headBranch":"v0.6.0-m6","status":"completed"}
+
+$ gh --repo Nolai2010/EtherOS run view 38076522422 --json jobs --jq '.jobs[]|"\(.name) | \(.conclusion)"'
+build release artifacts (same recipe as ci.yml:build) | success
+publish-release | success
+```
+
+event=push、headBranch=`v0.6.0-m6` → 确系 **tag push** 触发（与干跑的 `workflow_dispatch` 形成对照）✅；两 job **均 success**，`publish-release` 本次不再 skipped ✅❗ —— 这正是 M6-02 与 M6-03 的分水岭：同一份 workflow，只因 `github.event_name` 从 `workflow_dispatch` 变为 `push`，发布闸门由闭转开。
+
+`publish-release`（job id `114285023495`）步骤逐条：
+
+```
+Set up job                                                                    | success
+Run actions/checkout@v4                                                       | success
+Download release artifacts                                                    | success
+Create GitHub Release (-mN tags marked prerelease; v1.0.0 later per user decision) | success
+```
+
+`Download release artifacts` → `Create GitHub Release` 的顺序证实：发布的资产**来自本次 build job 产物**（download 自 `etheros-release-artifacts`），而非另起炉灶 ✅。
+
+### 门槛逐项核验
+
+```
+$ gh --repo Nolai2010/EtherOS release view v0.6.0-m6 --json tagName,name,isPrerelease,isDraft,assets
+{
+  "assets": [
+    {"name":"image.iso",     "size":7593984, "state":"uploaded", "contentType":"application/vnd.efi.iso"},
+    {"name":"misaka-kernel", "size":274384,  "state":"uploaded", "contentType":"application/octet-stream"},
+    {"name":"ramdisk.igz",   "size":6772626, "state":"uploaded", "contentType":"application/octet-stream"}
+  ],
+  "isDraft":false, "isPrerelease":true, "name":"EtherOS v0.6.0-m6", "tagName":"v0.6.0-m6"
+}
+```
+
+| 门槛 | 实测 | 结论 |
+|---|---|---|
+| 资产 ≥3 件 | 3 件（`image.iso` / `misaka-kernel` / `ramdisk.igz`） | ✅ |
+| 资产类型覆盖 ISO + kernel + ramdisk | 三者齐备，`image.iso` 的 contentType 为 `application/vnd.efi.iso` | ✅ |
+| `isPrerelease == true` | `true` | ✅ |
+| 非草稿（`isDraft` 不冒充） | `false` | ✅ |
+| Release 与 tag 对应 | tagName `v0.6.0-m6` == tag 名，targetCommitish `main` | ✅ |
+
+`isPrerelease: true` 与 M6-04 落档的"`-mN` 一律 prerelease"策略一致 ✅（release.yml:67 `--prerelease` 生效的实证，非仅 YAML 静态检查）。发布说明取自 `RELEASE_NOTES.md`（release.yml:69 `--notes-file RELEASE_NOTES.md`），本轮未对 notes 内容做逐字回读，此项沿用 M6-04 的文档侧实证。
+
+### 发现：ramdisk 产物跨 run 非字节可复现（本人新发现，非已声明 Minor）
+
+对比干跑（run `38076253475`，artifact `13671702`）与真实发布（Release assets）的同名产物：
+
+| 产物 | 干跑（18:35） | 真实发布（18:40） | 差值 |
+|---|---|---|---|
+| `image.iso` | 7593984 | 7593984 | 0 ✅ |
+| `misaka-kernel` | 274384 | 274384 | 0 ✅ |
+| `ramdisk.igz` | 6771662 | 6772626 | **+964** ❗ |
+
+`image.iso` 与 `misaka-kernel` 两次构建**字节数完全一致**；`ramdisk.igz` 相差 **964 字节**。两次构建间隔约 5 分钟、同一 commit（`b3c2fdd`）、同一配方（`util/build-in-docker.sh`，镜像 `toaruos/build-tools:1.99.x`）→ 差值只能来自配方内部的**非确定性输入**（ramdisk 打包嵌入了时间戳 / 文件 mtime 之类的易变元数据，属上游 initrd 打包的固有行为，非 release.yml 的缺陷）。
+
+后果评估：产物**可用**（M6-06 的可启动性链路不受影响 —— ISO 与 kernel 两次全等，且 vm-smoke 在同配方产物上实绿），但"同一 tag 重跑会产出不同字节的 ramdisk"，意味着 Release 资产**不可按字节复现校验**（外部用户无法用一个公布的和校验码去验手里的 `ramdisk.igz`）。不阻塞 M6 关门，挂 Phase 2 待办。
+
+判定：**PASS-with-note** —— 门槛四项（≥3 资产 / 类型覆盖 / prerelease / Release-tag 对应）全部由 `gh release view` 实跑输出坐实，且 publish job 的 download→create 顺序证实资产来源为本次构建产物。note 即上述 `ramdisk.igz` 跨 run 964 字节漂移（不可字节复现），与"未对已发布资产做独立启动验证"（见 §M6-06 与遗留 9）—— 两条均为如实记录，不判 FAIL（不阻塞 M6-03 的发布通道 gate），亦不粉饰为"已完整验证"。
 
 ---
 
@@ -231,7 +364,9 @@ RELEASE_NOTES.md:36-37  可启动性由 ci.yml `vm-smoke` job 背书:该 job 以
 
 文档自述与实证一致，无夸大 ✅。
 
-判定：**PASS-with-note** —— 三条链路齐备：配方 md5 全等 + artifact 名闭环 + 本 HEAD 上 vm-smoke 实绿。note（口径声明，不掩饰）：**"可启动性链路背书"系签收自 ci.yml vm-smoke 的既有绿证据**，而非本轮对 release.yml 产物单独做的启动验证——release.yml 的 `etheros-release-artifacts` 本身要等 merge 后 M6-02/03 才产出，届时其可启动性由"配方全等"这一同构关系传递背书，属推理链的第二环，白纸黑字记明。
+判定：**PASS-with-note** —— 三条链路齐备：配方 md5 全等 + artifact 名闭环 + 本 HEAD 上 vm-smoke 实绿。note（口径声明，不掩饰）：**"可启动性链路背书"系签收自 ci.yml vm-smoke 的既有绿证据**，而非本轮对 release.yml 产物单独做的启动验证——原轮撰写时 release.yml 的 `etheros-release-artifacts` 尚未产出（待 merge 后 M6-02/03），故其可启动性只能由"配方全等"这一同构关系传递背书，属推理链的第二环，白纸黑字记明。
+
+> **补记对该 note 的更新（不修改上段结论，仅修正其失效前提）**：上段"产物尚未产出"的前提**现已失效** —— M6-02 / M6-03 实跑后，release.yml 产物已真实产出并上传（干跑 artifact `13671702` bytes；Release `v0.6.0-m6` 三件资产）。但 note 的**实质结论依然成立**：vm smoke 启动的是 ci.yml build job 自产的 `etheros-boot-artifacts`，**不是** Release 里那一份 `image.iso`；二者同配方、同 commit、字节数全等（7593984），却非同一 artifact 对象，CI 中不存在"下载 Release 资产再启动"的步骤。故本条**仍为传递背书、仍非独立启动验证**，只是传递起点已由静态配方比对升级为同 commit 上的另一次实跑绿证据。完整重写见 §口径差异与遗留 9。
 
 ---
 
@@ -296,25 +431,26 @@ spec-consistency (a): OK
 
 ## 结论
 
-| 编号 | 判定 |
-|---|---|
-| M6-01 release.yml 双触发 + 与 ci.yml 同配方 | **PASS-with-note** |
-| M6-02 干跑演练（dry_run=true） | **PENDING**（待 merge 后 run 证据） |
-| M6-03 真实发布（v0.6.0-m6） | **PENDING**（待 merge 后 run 证据） |
-| M6-04 语义化版本策略落档 | **PASS** |
-| M6-05 OVA 降级记档（差异点 8 / Phase 2） | **PASS** |
-| M6-06 Release 含可启动产物（同源同配方链路） | **PASS-with-note** |
-| 零回退（ci.yml diff 空）+ 生成物纪律 + spec-consistency | **PASS**（附项） |
+| 编号 | 判定 | 终判依据（run id / 命令） |
+|---|---|---|
+| M6-01 release.yml 双触发 + 与 ci.yml 同配方 | **PASS-with-note** | YAML 解析 + 配方两行 md5 全等 `c910271a…`（原轮判定，未改写） |
+| M6-02 干跑演练（dry_run=true） | **PASS**（原 PENDING，本次补记） | run `38076253475`：build **success** / publish **skipped**；artifact `13671702` bytes；`release list` 未新增 |
+| M6-03 真实发布（v0.6.0-m6） | **PASS-with-note**（原 PENDING，本次补记） | run `38076522422`：build **success** / publish **success**；`release view`：3 assets、`isPrerelease=true`、tagName 对应 |
+| M6-04 语义化版本策略落档 | **PASS** | RELEASE_NOTES 三段 + `release.yml:67` `--prerelease`（原轮判定，未改写） |
+| M6-05 OVA 降级记档（差异点 8 / Phase 2） | **PASS** | 文档与 collect 步骤双重否定式措辞（原轮判定，未改写） |
+| M6-06 Release 含可启动产物（同源同配方链路） | **PASS-with-note** | 配方 md5 全等 + artifact 名闭环 + vm smoke 绿（原轮判定，未改写；背书性质见遗留 9 已重写） |
+| 零回退（ci.yml diff 空）+ 生成物纪律 + spec-consistency | **PASS**（附项） | `git diff … ci.yml \| wc -c` = 0（原轮判定，未改写） |
 
-**总计：本轮可判 4 条（M6-01 / 04 / 05 / 06）全部 PASS（其中 2 条 PASS-with-note）；M6-02 / M6-03 为 PENDING，待 merge 进 main 后补记终判。阻塞缺陷数 0。**
+**总计：M6-01 ~ M6-06 六条全部 PASS，其中 3 条 PASS-with-note（M6-01 / 03 / 06）；PENDING 归零。阻塞缺陷数 0。**
 
-补记承诺：merge 进 main 并完成干跑与 tag 发布后，本人回来就 M6-02 / M6-03 出具基于 `gh run` / `gh release view` 实跑输出的终判，并回填本表。
+补记承诺已履行：原 PENDING 的 M6-02 / M6-03 两条现已基于 `gh run view` / `gh release view` / `gh release list` 实跑输出出具终判并回填本表；遗留 9 已按"已有真实产物与 vm-smoke 绿证据"这一新事实重写。
 
 ---
 
 ## 口径差异与遗留
 
-1. **顺序调整（控制器已裁定，本轮据此执行）**：`gh workflow run` 要求 workflow 已存在于默认分支，实测在 `feat/m6-release` 上 dispatch 报 `HTTP 404: workflow release.yml not found on the default branch`；默认分支 `main` 当前为 `0395167`（不含 release.yml）。故 M6-02 / M6-03 只能待 merge 后执行，本轮写 **PENDING**——既不因"没跑过"判 FAIL（那是环境约束非实现缺陷），也不判 PASS（无 run 证据）。顺序：本轮验收 → merge → 干跑 → 打 tag 真实发布 → 补记终判。
+1. **顺序调整（控制器已裁定，原轮据此执行）—— 现已闭环**：`gh workflow run` 要求 workflow 已存在于默认分支，实测在 `feat/m6-release` 上 dispatch 报 `HTTP 404: workflow release.yml not found on the default branch`；当时默认分支 `main` 为 `0395167`（不含 release.yml）。故 M6-02 / M6-03 只能待 merge 后执行，原轮写 **PENDING**——既不因"没跑过"判 FAIL（那是环境约束非实现缺陷），也不判 PASS（无 run 证据）。顺序：原轮验收 → merge → 干跑 → 打 tag 真实发布 → 补记终判。
+   **闭环状态（补记）**：上述四步已按序执行完毕 —— merge 合并提交 `b3c2fdd`（main CI run `38076005107` 八 job 全绿）→ 干跑 run `38076253475`（build success / publish skipped）→ tag `v0.6.0-m6`（附注 tag，剥离后即 `b3c2fdd`）→ 真实发布 run `38076522422`（两 job 均 success）→ 本文件补记终判。**原 404 约束已解除且解除后行为与预测一致**，本条不再构成遗留，保留原文仅为存证。
 
 2. **已声明 Minor ① `dry_run` 是死输入** —— 本人独立复现属实：
    ```
@@ -341,12 +477,23 @@ spec-consistency (a): OK
 
 8. **【本人新发现，非已声明】注释互指仅单向**：见 M6-01。release.yml 有 3 处指向 ci.yml，ci.yml 对 release.yml **零命中**。标准字面"注释互指"的反向半句未达成。因验收者铁律禁止改动仓库文件（且零回退要求 ci.yml diff 必须为空、本轮实证为 0 字节），**不修只记档**。建议关门任务在 ci.yml build job 注释区补一行反向指引（例如"配方与 .github/workflows/release.yml:build-release 同构，改此须同步"），补后重跑零回退与 CI 即可闭合。
 
-9. **M6-06 的背书性质声明（不掩饰）**：本条判定依赖"配方 md5 全等"这一同构关系，将 ci.yml vm-smoke 的既有绿证据**传递**给 release.yml 产物。release.yml 的 `etheros-release-artifacts` 本轮尚未产出（待 M6-02/03），故其可启动性未经**独立**启动验证，属推理链第二环。merge 后干跑可取 release 产物实跑一次 QEMU 以闭合为直接证据。
+9. **M6-06 的背书性质声明（已按新事实重写，不掩饰也不夸大到"已独立启动验证"）**：原轮写的是 release.yml 产物"尚未产出、可启动性系推理链第二环"。补记后事实变化如下，**逐条据实重写**：
+   - **已成立的部分**：release.yml 产物现已真实产出（干跑 artifact `13671702` bytes，run `38076253475`），且真实发布已上传三件资产（run `38076522422` / Release `v0.6.0-m6`）。"产物是否存在"这一环已从推理变为事实 ✅。同配方关系亦已从静态 md5 比对升级为**两次实跑均成功产出三形态产物**的实证 ✅。
+   - **仍未成立的部分（不粉饰）**：**已上传的那三件资产本身，未经独立启动验证**。证据链是：vm smoke job 在 run `38076005107`（main，同 commit `b3c2fdd`）上实绿，它启动的是 **ci.yml build job 自己产出的** ISO（`etheros-boot-artifacts`），不是 Release 里那一份 `image.iso`。二者**同配方、同 commit、且实测字节数全等（7593984）**，但**不是同一个 artifact 对象**，CI 流程中不存在"下载 Release 资产再启动"这一步。
+   - **因此准确定性**：M6-06 的"可启动"结论仍是**同源同配方传递背书**，只是传递的起点从"静态配方比对"变成了"同 commit 上同配方的另一次实跑绿证据"。它**比原轮更强**（不再是纯静态推理），但**依然不是**"release 产物已独立启动验证"——后者需要对 `gh release download v0.6.0-m6` 下来的那一份 `image.iso` 单独跑一次 QEMU，本轮未做，故不宣称。
+   - **闭合建议（Phase 2 待办）**：取 Release 资产实跑一次 QEMU（`gh release download v0.6.0-m6 -p image.iso` 后走 ci.yml:220-284 的 vm-smoke 同款脚本），即可将本条由"传递背书"闭合为"直接证据"。叠加遗留 10 与 §M6-03 的 ramdisk 漂移后，一次闭合动作可同时坐实资产可用性与不可复现性两项。
 
-10. **本报告未登记进 `docs/index.md`**：验收者铁律限制改动仓库文件（唯一例外即本报告本身）。沿用 M5 报告先例，由关门任务（控制器代笔 plumbing）补登一行：`| docs/reports/2026-10-06-m6-acceptance.md | M6 独立验收报告（4 PASS / 2 PENDING；含 OVA 降级与 v1.0.0 留决策记档） |`。经本机校验：该引用在 spec-consistency 双基准检查下按 docs/ 相对基准可解析，登记后不会造成悬空 FAIL。
+10. **本报告未登记进 `docs/index.md`**（补记后待办项更新）：验收者铁律限制改动仓库文件（唯一例外即本报告本身）。沿用 M5 报告先例，由关门任务（控制器代笔 plumbing）补登一行。**原建议文本写的是"（4 PASS / 2 PENDING…）"，补记后应改为**：
+   ```
+   | docs/reports/2026-10-06-m6-acceptance.md | M6 独立验收报告（6 PASS，其中 M6-01/03/06 为 PASS-with-note；含 OVA 降级 Phase 2 记档、v1.0.0 留决策记档，以及 ramdisk 跨 run 非字节可复现记档） |
+   ```
+   经本机校验：该引用在 spec-consistency 双基准检查下按 docs/ 相对基准可解析，登记后不会造成悬空 FAIL。
 
-11. **验收过程零副作用声明**：本轮执行的写操作仅 `bash .etherkit/generate.sh`（实测零漂移，`git status --short` 为 0 字节）；临时比对文件落在 `/tmp`，未落进仓库；未推 tag、未动 main（`main` 仍 `0395167`）、未 dispatch 任何 workflow、未创建任何 Release。
+11. **验收过程零副作用声明（原轮 + 补记）**：
+   - **原轮**（HEAD `2747354`，分支 `feat/m6-release`）：写操作仅 `bash .etherkit/generate.sh`（实测零漂移，`git status --short` 为 0 字节）；临时比对文件落在 `/tmp`，未落进仓库；未推 tag、未动 main（`main` 仍 `0395167`）、未 dispatch 任何 workflow、未创建任何 Release。
+   - **补记轮**（HEAD `b3c2fdd`，分支 `main`）：**仅执行只读取证**（`gh run view` / `gh release view` / `gh release list` / `gh api …/artifacts` / `git log` / `git ls-remote`），**零写操作**；未推 tag、未创建 Release、未 dispatch 任何 workflow。补记期间发生的 merge（控制器执行）、tag 推送（控制器执行）、Release 创建（release.yml 自动执行）**均非本验收者所为**，本人对这些动作的取证是事后只读核验。
+   - 两轮合计：本验收者对仓库的改动**始终只有本报告一个文件**。
 
 ---
 
-**STATUS: PASS（4 条可判项全 PASS，2 条 PENDING 待 merge 后补记）**
+**STATUS: PASS（补记后：M6-01 ~ M6-06 六条全部 PASS，其中 M6-01 / 03 / 06 为 PASS-with-note；PENDING 归零，阻塞缺陷数 0）**
