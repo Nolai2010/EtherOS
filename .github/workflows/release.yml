@@ -1,0 +1,70 @@
+# EtherOS release channel (M6, spec 5: tag -> build -> GitHub Release).
+# Build recipe MUST stay in sync with ci.yml:build (same builder image + util/build-in-docker.sh).
+name: release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build & upload artifacts only, skip GitHub Release creation'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: build release artifacts (same recipe as ci.yml:build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: recursive }
+
+      - name: Build base OS (upstream builder image — keep in sync with ci.yml:build)
+        run: |
+          docker pull toaruos/build-tools:1.99.x
+          docker run -v ${{ github.workspace }}/base/toaruos:/root/misaka -w /root/misaka -e LANG=C.UTF-8 -t toaruos/build-tools:1.99.x util/build-in-docker.sh
+
+      - name: Collect release artifacts (ISO + kernel + ramdisk; OVA deferred to Phase 2, 差异点 8)
+        run: |
+          mkdir -p artifacts
+          find base/toaruos -maxdepth 2 -type f \( -name "*.iso" -o -name "misaka-kernel" -o -name "*.igz" \) -exec cp {} artifacts/ \; || true
+          ls -la artifacts/
+          test -f artifacts/image.iso
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: etheros-release-artifacts
+          path: artifacts/
+
+  publish-release:
+    # dry_run（workflow_dispatch 默认）或干跑演练时不创建 Release；只有真实 tag push 触发发布。
+    if: github.event_name == 'push'
+    needs: build-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: etheros-release-artifacts
+          path: artifacts
+
+      - name: Create GitHub Release (-mN tags marked prerelease; v1.0.0 later per user decision)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="$GITHUB_REF_NAME"
+          if gh release view "$TAG" --json tagName >/dev/null 2>&1; then
+            gh release upload "$TAG" artifacts/* --clobber
+          else
+            gh release create "$TAG" artifacts/* \
+              --prerelease \
+              --title "EtherOS $TAG" \
+              --notes-file RELEASE_NOTES.md
+          fi
