@@ -147,17 +147,32 @@ jobs:
           fails = []
           # (a) index dangling check: try docs/-relative then repo-root-relative.
           # Backticked snippets containing whitespace are command lines, not paths.
+          # M5 裁定 1(保留,不可删):含空白字符的反引号片段按命令行跳过,否则
+          # index.md 里的 `python3 tools/validate_plugins.py` 会被当成路径而假红。
           text = (docs / "index.md").read_text(encoding="utf-8")
+          scanned = 0
+          candidates = 0
           for p in sorted(set(re.findall(r'`([^`]+?\.(?:md|py|json|toml|sh))`', text))):
+            scanned += 1
             if any(ch.isspace() for ch in p):
               continue
+            candidates += 1
             cand = p[2:] if p.startswith("./") else p
             if not (docs / cand).exists() and not (root / cand).exists():
               fails.append(f"docs/index.md references missing doc: {p}")
+          # M7-01 空候选集不再静默通过:0 个候选意味着正则失效或 index.md 被清空,
+          # 旧写法下 0 次循环直接 OK(静默通过)。此处必须 FAIL。
+          if candidates < 1:
+            fails.append(f"docs/index.md yielded 0 path candidates ({scanned} backticked snippet(s) scanned); regex or index content broke")
           # (b) acceptance-standard milestone sections present
-          std = (docs / "development" / "acceptance-standard.md").read_text(encoding="utf-8")
+          # M7-01 行首锚定:旧写法 f"## {m}" not in std 是子串匹配,文档里的
+          # `## M1+ · 占位` 会让真正的 `## M1` 章节被删也放行(门禁形同虚设)。
+          # 定稿形式:整行等于 `## {m}`,或以 `## {m} ` (结尾带空格)开头。
+          # 于是 `## M1+ · 占位` 二者皆不满足(不再掩盖真 M1 的缺失),
+          # 而 `## M1 · 底座基线(归档...)` 满足后者,仍被认可。
+          std_lines = (docs / "development" / "acceptance-standard.md").read_text(encoding="utf-8").splitlines()
           for m in ("M0", "M1", "M2", "M3", "M4", "M5"):
-            if f"## {m}" not in std:
+            if not any(line == f"## {m}" or line.startswith(f"## {m} ") for line in std_lines):
               fails.append(f"acceptance-standard.md missing section: {m}")
           # (c) spec anchor referenced by .etherkit/AGENTS.md
           agents = (root / ".etherkit" / "AGENTS.md").read_text(encoding="utf-8")
