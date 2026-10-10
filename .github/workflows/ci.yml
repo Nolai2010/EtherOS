@@ -126,6 +126,49 @@ jobs:
       - name: pyflakes (python tools)
         run: python3 -m pyflakes tools/*.py plugins/compat/stub-runtime/*.py
 
+  spec-consistency:
+    # 分工:etherkit-consistency 管生成物漂移/slogan/make check/index 存在性(test -f);
+    # 本 job 管 index 每条被引文档的真实悬空 + spec 锚点 + schema 版本锚点。两者无重复门禁。
+    name: spec & docs reference consistency (anti context-drift)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: docs/index.md dangling check + spec anchor checks
+        run: |
+          python3 - <<'PY'
+          import json, re, sys
+          from pathlib import Path
+          root = Path(".").resolve()
+          docs = root / "docs"
+          fails = []
+          # (a) index dangling check: try docs/-relative then repo-root-relative.
+          # Backticked snippets containing whitespace are command lines, not paths.
+          text = (docs / "index.md").read_text(encoding="utf-8")
+          for p in sorted(set(re.findall(r'`([^`]+?\.(?:md|py|json|toml|sh))`', text))):
+            if any(ch.isspace() for ch in p):
+              continue
+            cand = p[2:] if p.startswith("./") else p
+            if not (docs / cand).exists() and not (root / cand).exists():
+              fails.append(f"docs/index.md references missing doc: {p}")
+          # (b) acceptance-standard milestone sections present
+          std = (docs / "development" / "acceptance-standard.md").read_text(encoding="utf-8")
+          for m in ("M0", "M1", "M2", "M3", "M4", "M5"):
+            if f"## {m}" not in std:
+              fails.append(f"acceptance-standard.md missing section: {m}")
+          # (c) spec anchor referenced by .etherkit/AGENTS.md
+          agents = (root / ".etherkit" / "AGENTS.md").read_text(encoding="utf-8")
+          for ref in set(re.findall(r'`(spec/[0-9A-Za-z._-]+\.md)`', agents)):
+            if not (root / ref).exists():
+              fails.append(f".etherkit/AGENTS.md references missing spec: {ref}")
+          # (d) schema version anchor
+          schema = json.loads((root / "plugins" / "schema" / "plugin.schema.json").read_text(encoding="utf-8"))
+          if schema.get("properties", {}).get("schema_version", {}).get("const") != "1":
+            fails.append("plugin.schema.json schema_version anchor drifted from \"1\"")
+          if fails:
+            print("\n".join(fails)); sys.exit(1)
+          print("spec consistency: OK")
+          PY
+
   build:
     # 上游官方构建路径:toaruos/build-tools 镜像自带预构建工具链 /root/gcc_local,
     # 由 util/build-in-docker.sh 链接后执行 make(见 docs/reports/2026-10-06-toaruos-survey.md)。
