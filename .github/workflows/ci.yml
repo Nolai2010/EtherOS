@@ -105,6 +105,23 @@ jobs:
           echo "checked $(echo "$COMMITS" | wc -l) non-merge commit(s)"
           exit $fail
 
+  lint:
+    # 只扫 EtherOS 自有代码:find 起点限定 kernel/ tools/ plugins/,
+    # base/(上游 toaruos) 结构性排除,绝不扫上游。
+    # clang-tidy 省略(需 compile db,内核非本仓构建);python 只到 pyflakes 级别。
+    name: lint (EtherOS-owned code only; base/ structurally excluded)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang-format cppcheck && python3 -m pip install --quiet pyflakes
+      - name: clang-format (C under kernel/ tools/ plugins/ only)
+        run: find kernel tools plugins \( -name '*.c' -o -name '*.h' \) -type f | xargs -r clang-format --dry-run --Werror
+      - name: cppcheck (kernel/)
+        run: cppcheck --enable=warning --error-exitcode=1 kernel/
+      - name: pyflakes (python tools)
+        run: python3 -m pyflakes tools/*.py plugins/compat/stub-runtime/*.py
+
   build:
     # 上游官方构建路径:toaruos/build-tools 镜像自带预构建工具链 /root/gcc_local,
     # 由 util/build-in-docker.sh 链接后执行 make(见 docs/reports/2026-10-06-toaruos-survey.md)。
