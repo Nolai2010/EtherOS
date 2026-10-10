@@ -4,7 +4,7 @@
 > 技术副口号：一纸插件声明，兼容百种格式，贯通各类终端 (One plugin manifest, every app format, every device.)
 > Tagline: **Plugin-Native. Kernel-Minimal.**
 
-插件原生、内核极简的开源大一统操作系统（M4 内建归位已落地）。
+插件原生、内核极简的开源大一统操作系统（M5 CI 六项点亮已落地，八 job 全绿）。
 
 - 内核只做 **调度 + 协议/能力解释(路由) + 加载/隔离**，零格式知识。
 - 内核之外没有非插件实体：驱动/服务/shell/文件管理器/设置/性能监控 = `plugins/builtin/` 内建不可卸载插件；计算器、抖音兼容包等 = `plugins/optional/` 可选插件。
@@ -45,5 +45,5 @@
 - [x] M2：插件 schema v1 + validator + 示例插件 + config 生效 + plugins/dev 自举 + 独立验收通过（docs/reports/2026-10-06-m2-acceptance.md，8/8）
 - [x] M3：兼容桩（stub translator + douyin compat-bridge 示例 + 协议路由 + kernel 接口契约）+ 独立验收通过（docs/reports/2026-10-06-m3-acceptance.md，8/8）
 - [x] M4：内建插件归位（builtin 四桩 + CORE_MANIFEST 收紧 + 内核边界守卫进 CI）+ 独立验收通过（docs/reports/2026-10-06-m4-acceptance.md，9/9）
-- [ ] M5：CI 六项点亮（license/dco/lint/spec-consistency 四新 job）
+- [x] M5：CI 六项点亮（license/dco/lint/spec-consistency 四新 job，八 job 全绿）+ 独立验收通过（docs/reports/2026-10-06-m5-acceptance.md，7/7）
 - [ ] M6：发布通道（tag → release.yml → ISO 三形态）
