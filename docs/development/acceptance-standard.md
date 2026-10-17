@@ -105,6 +105,17 @@ M1(底座基线)/M2(schema+配置)/M3(兼容桩)/M4(内建归位)/M5(CI 六项)/
 | M7-06 | 可行性调研：docs/reports/2026-10-11-phase2-feasibility.md 给出 aarch64 构建与 OVA 打包的结论（建议做/不做）、依据与成本量级；**M7 不落地实现** | 报告实读 + ci.yml/release.yml diff 为空证明未落地 |
 | M7-07 | 旧门禁零回退：M5 八 job 与 M6 release.yml 行为与 job 名不变 | CI 绿 + diff 复核 |
 
+## M8 · aarch64 第二架构（spec §4 M1 目标句清偿：x86-64/aarch64 可构建）
+
+| 编号 | 标准 | 验证方式 |
+|---|---|---|
+| M8-01 | build-aarch64 job 存在且绿：复刻 build job 的 Docker 跑法，仅换 `toaruos/build-tools:aarch64` 镜像与 `util/build-in-docker-aarch64.sh`；产物 artifact 含 misaka-kernel / ramdisk.igz / bootstub（+ kernel8.img） | CI 绿 + 产物清单 |
+| M8-02 | vm-smoke-aarch64 job 存在且绿：QEMU aarch64（`-M virt -cpu cortex-a72`）headless 启动，serial 捕获 `login:`（与 x86 侧同源于 apps/login.c:86），QMP screendump 取证 | CI 绿 + serial 证据 |
+| M8-03 | 旧八 job 零回退：ci.yml 的 diff 为纯插入，八个旧 job 名与行为不变 | `git diff v0.7.0-m7..HEAD -- .github/workflows/ci.yml` 复核 |
+| M8-04 | release.yml 零 diff：aarch64 产物不进发布通道（三形态维持，差异点 1） | diff 为空 |
+| M8-05 | submodule / kernel / tools / config 零改动：aarch64 构建完全发生在上游树内，EtherOS 自有树无一行改动 | diff 为空 |
+| M8-06 | spec 欠账清偿记档：验收报告写明 M1 行的 aarch64 口径差异由"记档"转为"已达成"，并注明 riscv64 仍为仅评估 | 报告实读 |
+
 ## M1 · 底座基线(归档:经独立验收)
 
 > 本章节为**归档补录**(2026-10-06 追加):M1 验收执行时本文档尚无 M1 章节(见验收报告口径差异段 1),

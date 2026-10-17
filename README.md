@@ -4,7 +4,7 @@
 > 技术副口号：一纸插件声明，兼容百种格式，贯通各类终端 (One plugin manifest, every app format, every device.)
 > Tagline: **Plugin-Native. Kernel-Minimal.**
 
-插件原生、内核极简的开源大一统操作系统（M0–M6 Phase 1 收官 + M7 Phase 2 开门：CI 八 job 全绿、发布通道打通、装载契约与用户态装载计划生成器落地）。
+插件原生、内核极简的开源大一统操作系统（M0–M6 Phase 1 收官 + M7 Phase 2 开门 + M8 双架构：CI 十 job 全绿、发布通道打通、装载契约落地、x86-64/aarch64 均可构建）。
 
 - 内核只做 **调度 + 协议/能力解释(路由) + 加载/隔离**，零格式知识。
 - 内核之外没有非插件实体：驱动/服务/shell/文件管理器/设置/性能监控 = `plugins/builtin/` 内建不可卸载插件；计算器、抖音兼容包等 = `plugins/optional/` 可选插件。
@@ -48,3 +48,4 @@
 - [x] M5：CI 六项点亮（license/dco/lint/spec-consistency 四新 job，八 job 全绿）+ 独立验收通过（docs/reports/2026-10-06-m5-acceptance.md，7/7）
 - [x] M6：发布通道（tag 触发 release.yml → ISO/kernel/ramdisk 三形态，OVA 降级 Phase 2）+ 独立验收通过（docs/reports/2026-10-06-m6-acceptance.md，六条全 PASS）
 - [x] M7：Phase 2 开门（spec-consistency 行首锚定 + lint 空集断言 + CONTRIBUTING + 装载契约与用户态装载计划生成器 + aarch64/OVA 可行性调研）+ 独立验收通过（docs/reports/2026-10-11-m7-acceptance.md，7/7）
+- [x] M8：aarch64 第二架构（build-aarch64 + vm-smoke-aarch64 两 job，spec §4 M1 行 aarch64 半句由口径差异转为已达成）+ 独立验收通过（docs/reports/2026-10-17-m8-acceptance.md，6/6）

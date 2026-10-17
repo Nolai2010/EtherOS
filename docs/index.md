@@ -35,3 +35,4 @@
 | `../CONTRIBUTING.md` | 贡献流程（M7-03）：DCO 签核 `git commit -s`（merge commit 豁免记档）、里程碑短命分支 `feat/m<N>-<slug>` → `merge --no-ff` 进主分支 → annotated tag `v0.x.0-mN`、验收闭环（实现者≠审查者、禁止自评、验收未过不合门不打 tag） |
 | `docs/reports/2026-10-11-phase2-feasibility.md` | Phase 2 可行性调研（M7-06）：aarch64 构建（建议做，附两步最小 CI 路径）与 OVA 打包（建议不做，维持 M6 差异点 8 降级）的结论、成本量级与诚实边界；ci.yml/release.yml 零改动 |
 | `docs/reports/2026-10-11-m7-acceptance.md` | M7 独立验收报告（7/7 PASS；含 db62985 未放宽门禁独立确认、4 条负例实证、口径差异 1 条记档） |
+| `docs/reports/2026-10-17-m8-acceptance.md` | M8 独立验收报告（6/6 PASS；aarch64 构建与启动证据，含 M1 行 aarch64 口径差异「转正」声明与 riscv64 仍仅评估记档） |

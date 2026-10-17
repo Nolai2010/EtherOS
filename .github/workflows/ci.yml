@@ -191,7 +191,7 @@ jobs:
           # M7-01 白名单扩到 M7:旧元组停在 M5,M6/M7 两个已入库章节不受本道门禁
           # 保护(删了也不红)。二者当前确实存在于 acceptance-standard.md,扩了是
           # 门禁增强、不会假红。方向只许更严。
-          for m in ("M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7"):
+          for m in ("M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8"):
             if not any(line == f"## {m}" or line.startswith(f"## {m} ") for line in std_lines):
               fails.append(f"acceptance-standard.md missing section: {m}")
           # (c) spec anchor referenced by .etherkit/AGENTS.md
@@ -334,5 +334,159 @@ jobs:
           path: |
             serial-com1.log
             serial-com2.log
+            screen.ppm
+          if-no-files-found: warn
+
+  build-aarch64:
+    # 上游官方 aarch64 构建路径,与 build job(x86_64)同源、仅两处不同:
+    # 镜像 toaruos/build-tools:1.99.x -> toaruos/build-tools:aarch64,
+    # 入口 util/build-in-docker.sh -> util/build-in-docker-aarch64.sh
+    # (内部 make ARCH=aarch64;system 目标产出 misaka-kernel/ramdisk.igz/
+    # bootstub/kernel8.img,见 build/aarch64.mk 与上游 .github/workflows/aarch64.yml,
+    # 依据 docs/reports/2026-10-11-phase2-feasibility.md 议题一)。
+    name: build ToaruOS aarch64 base (upstream builder image)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build aarch64 base OS (upstream builder image, per docs/reports/2026-10-11-phase2-feasibility.md)
+        run: |
+          docker pull toaruos/build-tools:aarch64
+          docker run -v ${{ github.workspace }}/base/toaruos:/root/misaka -w /root/misaka -e LANG=C.UTF-8 -t toaruos/build-tools:aarch64 util/build-in-docker-aarch64.sh
+
+      - name: Collect aarch64 boot artifacts
+        run: |
+          mkdir -p artifacts
+          find base/toaruos -maxdepth 2 -type f \( -name "misaka-kernel" -o -name "*.igz" -o -name "bootstub" -o -name "kernel8.img" \) -exec cp {} artifacts/ \; || true
+          ls -la artifacts/
+
+      - name: Upload aarch64 boot artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: etheros-aarch64-artifacts
+          path: artifacts/
+          if-no-files-found: warn
+
+  vm-smoke-aarch64:
+    # QEMU 参数以 base/toaruos/build/aarch64.mk 的 shell 目标为权威(headless 串口):
+    # qemu-system-aarch64 -M virt -m 4G -smp 4 -cpu cortex-a72 -no-reboot -display none
+    # -d guest_errors -net user + e1000e,-kernel bootstub,-append "root=/dev/ram0
+    # migrate start=--headless",fw_cfg 注入 kernel/initrd
+    # (opt/org.toaruos.kernel / opt/org.toaruos.initrd)与 gettyargs
+    # (-a local /dev/ttyS0 115200,pl011)。上游 aarch64.yml 只跑 build 不跑 boot 冒烟,仅参照。
+    # CI 差异(与 x86 侧 vm-smoke 同形态):-serial mon:stdio 改 -serial file: 捕获;
+    # x86 runner 无 aarch64 KVM,EMU_KVM 不传(TCG);TERM 取 ${TERM:-xterm}
+    # (x86 侧 gettyargs 同为 xterm;aarch64.mk 的 ${TERM} 即环境默认机制)。
+    # kcmdline start=--headless → base/etc/startup.d/99_runstart.sh exec /bin/getty,
+    # apps/login.c:86 打印 "<hostname> login: " —— 断言 login: 与 x86 侧同字符串同源。
+    name: vm smoke aarch64 (QEMU headless boot evidence)
+    runs-on: ubuntu-latest
+    needs: build-aarch64
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download aarch64 boot artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: etheros-aarch64-artifacts
+          path: artifacts
+
+      - name: Install QEMU
+        # ipxe-qemu:Debian/Ubuntu 的 qemu-system-arm 包不含 efi-e1000e.rom
+        # (aarch64.mk EMU_ARGS 的 e1000e 需要它,round 1 实证 QEMU 秒退
+        # "failed to find romfile" —— 环境缺失,非配方问题;补包不改 QEMU 参数)。
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends qemu-system-arm ipxe-qemu
+
+      - name: Boot aarch64 image headless and capture serial log
+        run: |
+          ls -la artifacts/
+          KERNEL=$(find artifacts -name "misaka-kernel" | head -1)
+          INITRD=$(find artifacts -name "*.igz" | head -1)
+          BOOTSTUB=$(find artifacts -name "bootstub" | head -1)
+          test -n "$KERNEL" && test -n "$INITRD" && test -n "$BOOTSTUB" || { echo "MISSING AARCH64 ARTIFACTS"; exit 1; }
+          qemu-system-aarch64 --version
+          rm -f serial-aarch64.log screen.ppm
+          # 单串口(pl011 /dev/ttyS0)接 getty;TCG 启动慢于 x86:
+          # 每 5s 轮询串口,至多 ~300s,拿到即提前收。
+          # -device ramfb 出自 aarch64.mk EMU_ARGS 公共部分(run/run-vga/debug 共用):
+          # shell 目标本身无显示设备,virt 默认也无 VGA;补 ramfb 让 QMP screendump
+          # 有显示设备可取帧(与 x86 侧 vm-smoke 保留 VGA 供 screendump 同形态),
+          # headless 启动链路不受影响(start=--headless 不启 GUI)。
+          # gettyargs 与 aarch64.mk shell 目标的差异(round 3 实证后裁定):
+          # 上游 shell 目标用 "-a local ..."(getty -a local → login -f local,
+          # apps/login.c:66 goto do_fork 免密直登,不打印 apps/login.c:86 的
+          # "login: ";serial 实况见 run 39039782092:全链路在跑、止于
+          # local@livecd:~$,但无 login: 字符串)。M8-02 要求断言 login:
+          # (与 x86 侧 vm-smoke 同字符串同源),故去掉 -a local 前缀,其余保持
+          # 上游格式(/dev/ttyS0 115200 xterm;波特率与 term 均出自 aarch64.mk,
+          # 设备节点为 pl011 首串口,与 x86 侧 /dev/ttyS1 115200 xterm 同构)。
+          # 注意:bash 续行块中间不得插 # 注释(round 4 实证:注释截断 QEMU 参数,
+          # QEMU 残缺前台运行致 job 20min 超时),注释只许放命令块之前。
+          qemu-system-aarch64 \
+            -M virt -m 4G -smp 4 -cpu cortex-a72 \
+            -no-reboot -display none -d guest_errors -device ramfb \
+            -net user -netdev hubport,id=u1,hubid=0, -device e1000e,netdev=u1 \
+            -name "ToaruOS aarch64" \
+            -kernel "$BOOTSTUB" \
+            -append "root=/dev/ram0 migrate start=--headless" \
+            -fw_cfg name=opt/org.toaruos.initrd,file="$INITRD" \
+            -fw_cfg name=opt/org.toaruos.kernel,file="$KERNEL" \
+            -fw_cfg "name=opt/org.toaruos.gettyargs,string=/dev/ttyS0 115200 ${TERM:-xterm}" \
+            -serial file:serial-aarch64.log \
+            -qmp unix:/tmp/qmp-aarch64.sock,server,nowait \
+            &
+          QEMU_PID=$!
+          EVIDENCE=""
+          for i in $(seq 1 60); do
+            sleep 5
+            if grep -aq "login:" serial-aarch64.log 2>/dev/null; then EVIDENCE=yes; break; fi
+            if ! kill -0 "$QEMU_PID" 2>/dev/null; then echo "qemu exited early (round $i)"; break; fi
+          done
+          echo "poll rounds: $i, evidence: ${EVIDENCE:-none}"
+          # 辅助证据:QMP screendump,尽力而为,失败不阻塞(与 x86 侧 vm-smoke 同形态)
+          cat > /tmp/qmp_dump.py <<'PYEOF'
+          import socket
+          s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+          s.connect("/tmp/qmp-aarch64.sock")
+          f = s.makefile("rwb")
+          f.readline()
+          f.write(b'{"execute":"qmp_capabilities"}\n'); f.flush()
+          f.readline()
+          f.write(b'{"execute":"screendump","arguments":{"filename":"screen.ppm"}}\n'); f.flush()
+          f.readline()
+          f.close(); s.close()
+          PYEOF
+          python3 /tmp/qmp_dump.py || true
+          kill "$QEMU_PID" 2>/dev/null || true
+          wait "$QEMU_PID" 2>/dev/null || true
+          echo "---- serial-aarch64.log (pl011 getty/login, head 100) ----"
+          head -100 serial-aarch64.log 2>/dev/null | cat -v || true
+          ls -la serial-aarch64.log screen.ppm 2>/dev/null || true
+
+      - name: Assert boot evidence (honest)
+        run: |
+          test -f serial-aarch64.log || { echo "NO SERIAL LOG"; exit 1; }
+          # 真实断言:login 启动后必打印 "<hostname> login: "(apps/login.c:86),
+          # 出现即证明 aarch64 内核与用户态均已真正跑起来(ramdisk/驱动/init 全链路)。
+          if grep -aq "login:" serial-aarch64.log; then
+            echo "BOOT EVIDENCE OK: userspace login reached on aarch64 serial (pl011)"
+            exit 0
+          fi
+          echo "NO BOOT EVIDENCE IN SERIAL"
+          echo "---- serial-aarch64.log (full) ----"
+          cat -v serial-aarch64.log || true
+          exit 1
+
+      - name: Upload smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vm-smoke-aarch64-evidence
+          path: |
+            serial-aarch64.log
             screen.ppm
           if-no-files-found: warn
