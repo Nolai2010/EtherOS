@@ -116,6 +116,17 @@ M1(底座基线)/M2(schema+配置)/M3(兼容桩)/M4(内建归位)/M5(CI 六项)/
 | M8-05 | submodule / kernel / tools / config 零改动：aarch64 构建完全发生在上游树内，EtherOS 自有树无一行改动 | diff 为空 |
 | M8-06 | spec 欠账清偿记档：验收报告写明 M1 行的 aarch64 口径差异由"记档"转为"已达成"，并注明 riscv64 仍为仅评估 | 报告实读 |
 
+## M9 · schema v2（插件依赖声明 + 拓扑装载）
+
+| 编号 | 标准 | 验证方式 |
+|---|---|---|
+| M9-01 | plugin.schema.json 升 v2：`schema_version.const == "2"`；新增可选 `dependencies` 字段（插件 id 数组，元素 pattern 与 name 一致）；字段集合除 dependencies 外与 v1 逐字相同 | schema 实读 + 负例（v1 manifest 被拒） |
+| M9-02 | 全树 manifest 迁移：所有 `plugin.json` 的 schema_version 均为 "2"，零遗漏；validator 对 v1 manifest 明确拒绝并给出迁移提示 | `git grep` 零命中 "1" + 负例实跑 |
+| M9-03 | 依赖语义断言：validator 拒绝自依赖、重复依赖、引用不存在插件 id 三种形态，各自给出原因 | 三条负例实跑 |
+| M9-04 | 装载器拓扑排序：tools/load_plugins.py 的 load_order 由依赖拓扑决定（被依赖者在前），无依赖时退化为既有目录序；检测到依赖环 → 非 0 退出并列出环上成员 | 正例 + 环负例实跑 |
+| M9-05 | 契约同步：kernel/interfaces/loader-contract.md 与 loader_if.h 反映 load_order 的拓扑语义，notes 中"无依赖排序来源"表述已更新；契约键名集合不变 | 文件实读 + 键名比对 |
+| M9-06 | 旧门禁零回退 + schema 锚点同步：ci.yml 的 spec-consistency 对 schema_version 的断言同步为 "2"（非消音），其余九 job 名与行为不变 | CI 十 job 全绿 + diff 复核 |
+
 ## M1 · 底座基线(归档:经独立验收)
 
 > 本章节为**归档补录**(2026-10-06 追加):M1 验收执行时本文档尚无 M1 章节(见验收报告口径差异段 1),
