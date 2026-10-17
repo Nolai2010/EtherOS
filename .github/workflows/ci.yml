@@ -65,6 +65,12 @@ jobs:
           python3 tools/route_plugins.py --run hello-plugin
           python3 tools/route_plugins.py --run douyin
 
+      - name: Load plan smoke (M7 load_plugins)
+        run: |
+          python3 tools/load_plugins.py | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['status']=='plan-only'; print('LOAD PLAN OK', len(d['enabled']))"
+          printf '[plugins]\nenabled = ["no-such-plugin"]\n' > /tmp/bogus.toml
+          ! python3 tools/load_plugins.py --config /tmp/bogus.toml
+
   license:
     name: license (reuse lint, submodules excluded per spec 5 / risk 2)
     runs-on: ubuntu-latest
