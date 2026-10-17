@@ -283,7 +283,7 @@ $ gh api .../compare/v0.7.0-m7...feat/m8-aarch64 --jq '.commits[] | {sha,parents
 
 1. **ci.yml:421 注释 `apps/login.c:60 goto do_fork` 行号写错** —— 独立复核属实：取上游 `e77143fd` 的 `apps/login.c` 实测，`goto do_fork;` 在 **:66**（:86 才是 `fprintf(stdout, "%s login: ", _hostname);`，与判据一致）。注释性错误，不影响行为。控制器已裁定并入 M8-6 关门处理。
 2. **实现报告自评 ci.yml diff 153 行 vs 实测 154 行** —— 独立复核属实：difflib opcode 级实测 **+154 / -0**。属自评笔误，未影响判据（不论 153 还是 154，纯插入结论不变）。控制器已裁定并入 M8-6 关门处理。
-3. **gettyargs 偏离上游 `aarch64.mk` shell 目标（去掉 `-a local`）** —— 独立复核属实且**认为必要**：上游 `-a local` 走免密直登，打印 `local@livecd:~$` 而**不打印** `login:`，与 M8-02 判据要求的"`login:`（同源 apps/login.c:86）"直接冲突（反例 run 39039782092 已实证）。这是判据内部一致性所要求的取舍，记为**口径差异**，非实现偏差。控制器已裁定接受。
+3. **gettyargs 偏离上游 `aarch64.mk` shell 目标（去掉 `-a local`）** —— 独立复核属实且**认为必要**：上游 `-a local` 走免密直登，打印 `local@livecd:~$` 而**不打印** `login:`，与 M8-02 判据要求的"`login:`（同源 apps/login.c:86）"直接冲突（反例 run 39039782092 已实证）。这是判据内部一致性所要求的取舍，**定性为口径差异、非实现偏差**，控制器已裁定接受；完整口径陈述见 §口径差异与遗留 项 6。
 4. **（验收新发现）aarch64 screendump 不具区分力** —— 实测：PASS run（39042486091）与反例 run（39039782092）的 `screen.ppm` **md5 全等**（`0eccb2783cde236b8e86b3906938cdbc`），两帧均 921615 B、payload 仅含 2 种字节值（0 与 0xAA）、非零占比 0.34%（3132/921600）。即该帧在"到达 login 提示"与"已登录进 shell"两种截然不同的状态下**完全一样**，作为证据不携带任何区分信息（对比 x86 侧 M1 A5 记录的 1920×1080 帧：30 字节窗口内 127 个唯一值）。判据中 screendump 明列为"辅助证据、尽力而为、失败不阻塞"（ci.yml:450），核心断言在 serial，故**不判 FAIL**；但建议后续里程碑要么硬化（确认 ramfb 是否真能取到 fbterm 帧、必要时改取帧时机或改断言），要么在判据里明示降级为"仅证明 screendump 通道可用"，避免它被当成启动证据引用。
 
 ---
@@ -295,7 +295,22 @@ $ gh api .../compare/v0.7.0-m7...feat/m8-aarch64 --jq '.commits[] | {sha,parents
 3. **aarch64 产物不进 Release** —— 差异点 1（控制器预裁定，待用户追认）：维持 M6 三形态（ISO/kernel/ramdisk，x86_64），aarch64 仅作 CI artifact。本验收按此裁定核验，M8-04 判 PASS。
 4. **spec-consistency 的里程碑白名单仍停在 M7**（ci.yml:194 元组为 `("M0"…"M7")`）—— 本次追加的 M8 章节不在该门禁保护范围内（被删也不会红）。属门禁增强项，不是本里程碑判据，不判 FAIL；建议后续里程碑把白名单扩到 M8。
 5. **本报告只覆盖 M8-01~M8-06** —— M8-6 关门（README 勾选、index 登记、merge --no-ff、tag `v0.8.0-m8`）不在本次验收范围，未执行、未预判。
+6. **gettyargs 偏离上游（口径差异，控制器已裁定接受）** —— vm-smoke-aarch64 注入的 `opt/org.toaruos.gettyargs` 为 `/dev/ttyS0 115200 ${TERM:-xterm}`，**去掉了**上游 `base/toaruos/build/aarch64.mk` shell 目标里的 `-a local` 前缀（ci.yml:419-426 已就地记档）。理由：getty `-a local` → `login -f local` → `apps/login.c:66 goto do_fork` 免密直登，**不打印** `apps/login.c:86` 的 `"%s login: "`，与 M8-02 判据"断言 `login:`（与 x86 侧同源）"直接冲突；反例 run 39039782092 已实证该形态下 OS 全启动至 `local@livecd:~$` 却拿不到 `login:`、job 判红。除该前缀外，设备节点（pl011 首串口 `/dev/ttyS0`）、波特率（115200）、TERM（`${TERM:-xterm}`，与 x86 侧同位）均出自 `aarch64.mk`，与 x86 侧 `/dev/ttyS1 115200 xterm` 同构。**这是判据内部一致性所要求的取舍，记为口径差异，不判 FAIL。**
+7. **两条已知 Minor 结转（控制器已裁定并入 M8-6 关门处理，本次不修、不判 FAIL）** —— (a) `ci.yml:421` 注释写 `apps/login.c:60 goto do_fork`，实测应为 **:66**（上游 `e77143fd` 核实）；(b) 实现报告自评 ci.yml diff **153 行**，实测 **+154 / -0**。二者均为注释/计数笔误，不影响任何判据（不论 153 还是 154，纯插入结论不变）。详见 §已知 Minor 项 1、2。
 
 ---
 
-**STATUS: PASS（M8-01 ~ M8-06 六条全部 PASS；阻塞缺陷数 0；4 条 Minor 均为记档项，其中 1–3 控制器已裁定，4 为本次新发现，交控制器/关门任务裁量）**
+## M8-06 转正声明（摘要，供终审直读）
+
+> **spec §4 M1 行（`spec/2026-10-05-etheros-dev-policy.md:191`）「x86-64/aarch64 可构建且 GUI 启动」中的 aarch64 半句：自本里程碑起由"口径差异记档"转为"已达成"。**
+>
+> - **转正前**：`docs/reports/2026-10-06-m1-acceptance.md` 口径差异段 2 —— "aarch64 构建无独立证据……无 aarch64 构建证据"，缺口记档、未计 FAIL。
+> - **转正后**：本里程碑 run `39042486091` —— 构建侧 job `117424593122` 产出 aarch64 四件产物（`aarch64-unknown-toaru-gcc -DKERNEL_ARCH=aarch64`）；启动侧 job `117425051177` 于 `-M virt -cpu cortex-a72` headless 下捕获 `livecd login: `（与 x86 侧字节同源）。反例 run `39039782092` 判红，证明证据非空转。
+> - **原文不改写**：`docs/reports/2026-10-06-m1-acceptance.md` 与 spec 原文均实测与 `v0.7.0-m7` **字节一致**，转正声明只在本 M8 报告内做出。
+> - **riscv64 仍为仅评估**：ci.yml 无任何 riscv64 job（`grep -i riscv` 零命中），依 spec:100「`arch/riscv64/` 等仅评估留桩」。
+
+---
+
+**总判定：M8-01 ~ M8-06 六条全部 PASS，阻塞缺陷 0；4 条 Minor 均为记档项（1–3 控制器已裁定，4 为本次新发现），交控制器 / M8-6 关门任务裁量。**
+
+**STATUS: PASS**
