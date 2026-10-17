@@ -34,3 +34,4 @@
 | `../RELEASE_NOTES.md` | 发布说明（M6）：v0.6.0-m6 Phase 1 收官内容、v0.x.0-mN 版本惯例与 v1.0.0 留用户决策、三形态产物与 OVA 降级 Phase 2 记档；release.yml 以 `--notes-file` 消费 |
 | `../CONTRIBUTING.md` | 贡献流程（M7-03）：DCO 签核 `git commit -s`（merge commit 豁免记档）、里程碑短命分支 `feat/m<N>-<slug>` → `merge --no-ff` 进主分支 → annotated tag `v0.x.0-mN`、验收闭环（实现者≠审查者、禁止自评、验收未过不合门不打 tag） |
 | `docs/reports/2026-10-11-phase2-feasibility.md` | Phase 2 可行性调研（M7-06）：aarch64 构建（建议做，附两步最小 CI 路径）与 OVA 打包（建议不做，维持 M6 差异点 8 降级）的结论、成本量级与诚实边界；ci.yml/release.yml 零改动 |
+| `docs/reports/2026-10-11-m7-acceptance.md` | M7 独立验收报告（7/7 PASS；含 db62985 未放宽门禁独立确认、4 条负例实证、口径差异 1 条记档） |
