@@ -396,7 +396,10 @@ jobs:
           path: artifacts
 
       - name: Install QEMU
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends qemu-system-arm
+        # ipxe-qemu:Debian/Ubuntu 的 qemu-system-arm 包不含 efi-e1000e.rom
+        # (aarch64.mk EMU_ARGS 的 e1000e 需要它,round 1 实证 QEMU 秒退
+        # "failed to find romfile" —— 环境缺失,非配方问题;补包不改 QEMU 参数)。
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends qemu-system-arm ipxe-qemu
 
       - name: Boot aarch64 image headless and capture serial log
         run: |
@@ -409,9 +412,13 @@ jobs:
           rm -f serial-aarch64.log screen.ppm
           # 单串口(pl011 /dev/ttyS0)接 getty;TCG 启动慢于 x86:
           # 每 5s 轮询串口,至多 ~300s,拿到即提前收。
+          # -device ramfb 出自 aarch64.mk EMU_ARGS 公共部分(run/run-vga/debug 共用):
+          # shell 目标本身无显示设备,virt 默认也无 VGA;补 ramfb 让 QMP screendump
+          # 有显示设备可取帧(与 x86 侧 vm-smoke 保留 VGA 供 screendump 同形态),
+          # headless 启动链路不受影响(start=--headless 不启 GUI)。
           qemu-system-aarch64 \
             -M virt -m 4G -smp 4 -cpu cortex-a72 \
-            -no-reboot -display none -d guest_errors \
+            -no-reboot -display none -d guest_errors -device ramfb \
             -net user -netdev hubport,id=u1,hubid=0, -device e1000e,netdev=u1 \
             -name "ToaruOS aarch64" \
             -kernel "$BOOTSTUB" \
