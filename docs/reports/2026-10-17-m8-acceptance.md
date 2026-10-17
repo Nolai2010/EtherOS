@@ -3,6 +3,7 @@
 - **验收者**：general-purpose-1（独立上下文，与 M8-1~M8-4 的实现者 / 复审者均不同；不替实现背书，不采信自评）
 - **被验对象**：分支 `feat/m8-aarch64`，HEAD `f079fab`（`f079fab840bccc8e58866007e6829c131235d257`，提交主题 `ci: keep QEMU cmd block free of inline comments (bash cont)`）
 - **区间**：`v0.7.0-m7..HEAD`，共 **6 个非合并提交**（`c9ae865` → `f079fab`），`ahead_by=6 / behind_by=0`
+- **取证快照**：M8-01~M8-06 六条的判定**全部以 `f079fab`（M8 实现 HEAD）为准**。验收执行期间，M8-6 关门工作的提交 `dd939a0` 与本报告的 `ed88568` / `c570714` 并发落在同一分支上；其对 ci.yml 的追加改动**不属于本次验收对象**，但已做事后复核，见 §事后复核（并发关门提交后）。M8-01 / M8-02 / M8-05 / M8-06 的结论不受该提交影响。
 - **依据**：`docs/development/acceptance-standard.md` M8 章节（M8-01~M8-06）+ `spec/2026-10-05-etheros-dev-policy.md` §4 M1 行（:191）+ M8 计划差异点 5（转正口径）
 - **口径**：偏严——证据一律取自 CI 实际日志与 artifact 字节，不采信实现者报告的自述数字；M8-02 另跑**反向反例**证明断言非空转；零回退一律用 pyyaml 做 **job 级对象比对**，不做肉眼 diff
 - **写操作范围**：**仅新建本报告一个文件**；未改 ci.yml / release.yml / acceptance-standard.md / spec / M1 验收报告，未推 tag、未动 main、未派子代理
@@ -281,7 +282,7 @@ $ gh api .../compare/v0.7.0-m7...feat/m8-aarch64 --jq '.commits[] | {sha,parents
 
 ## 已知 Minor 逐条独立核实（记档，不判 FAIL）
 
-1. **ci.yml:421 注释 `apps/login.c:60 goto do_fork` 行号写错** —— 独立复核属实：取上游 `e77143fd` 的 `apps/login.c` 实测，`goto do_fork;` 在 **:66**（:86 才是 `fprintf(stdout, "%s login: ", _hostname);`，与判据一致）。注释性错误，不影响行为。控制器已裁定并入 M8-6 关门处理。
+1. **ci.yml:421 注释 `apps/login.c:60 goto do_fork` 行号写错** —— 独立复核属实：取上游 `e77143fd` 的 `apps/login.c` 实测，`goto do_fork;` 在 **:66**（:86 才是 `fprintf(stdout, "%s login: ", _hostname);`，与判据一致）。注释性错误，不影响行为。**已于验收执行期间由并发的 M8-6 关门提交 `dd939a0` 订正为 `:66`**（当前 HEAD `c570714` 实测已为 `:66`），本条**不再挂账**，此处保留原始复核记录以备追溯。
 2. **实现报告自评 ci.yml diff 153 行 vs 实测 154 行** —— 独立复核属实：difflib opcode 级实测 **+154 / -0**。属自评笔误，未影响判据（不论 153 还是 154，纯插入结论不变）。控制器已裁定并入 M8-6 关门处理。
 3. **gettyargs 偏离上游 `aarch64.mk` shell 目标（去掉 `-a local`）** —— 独立复核属实且**认为必要**：上游 `-a local` 走免密直登，打印 `local@livecd:~$` 而**不打印** `login:`，与 M8-02 判据要求的"`login:`（同源 apps/login.c:86）"直接冲突（反例 run 39039782092 已实证）。这是判据内部一致性所要求的取舍，**定性为口径差异、非实现偏差**，控制器已裁定接受；完整口径陈述见 §口径差异与遗留 项 6。
 4. **（验收新发现）aarch64 screendump 不具区分力** —— 实测：PASS run（39042486091）与反例 run（39039782092）的 `screen.ppm` **md5 全等**（`0eccb2783cde236b8e86b3906938cdbc`），两帧均 921615 B、payload 仅含 2 种字节值（0 与 0xAA）、非零占比 0.34%（3132/921600）。即该帧在"到达 login 提示"与"已登录进 shell"两种截然不同的状态下**完全一样**，作为证据不携带任何区分信息（对比 x86 侧 M1 A5 记录的 1920×1080 帧：30 字节窗口内 127 个唯一值）。判据中 screendump 明列为"辅助证据、尽力而为、失败不阻塞"（ci.yml:450），核心断言在 serial，故**不判 FAIL**；但建议后续里程碑要么硬化（确认 ramfb 是否真能取到 fbterm 帧、必要时改取帧时机或改断言），要么在判据里明示降级为"仅证明 screendump 通道可用"，避免它被当成启动证据引用。
@@ -291,12 +292,34 @@ $ gh api .../compare/v0.7.0-m7...feat/m8-aarch64 --jq '.commits[] | {sha,parents
 ## 口径差异与遗留
 
 1. **本机 git 到 github.com 的 HTTPS 通道不可用**（代理 `CONNECT … 502`、直连超时），而 `api.github.com` 可达。故 `git diff v0.7.0-m7..HEAD -- <path>` 一类判据改以**等价取证**执行：Compare API 取全区间变更文件清单 + 两版文件原文下载 + 字节比对 + pyyaml 对象比对。三者互为交叉验证，且 M8-04 的"diff 为空"已由"字节全等 + 对象全等 + Compare 清单不出现该文件"三重确认，结论强度不低于原判据。
-2. **本报告未登记进 `docs/index.md`** —— 验收者铁律限制改动仓库文件（唯一例外即本报告本身）。沿用 M5/M6/M7 报告先例，由 M8-6 关门任务补登。
+2. **本报告登记进 `docs/index.md`** —— 验收者铁律限制改动仓库文件（唯一例外即本报告本身），故未由本报告自行登记；**已由并发的 M8-6 关门提交 `dd939a0` 补登**（`docs/index.md` +1 行，含"6/6 PASS；aarch64 构建与启动证据，含 M1 行 aarch64 口径差异「转正」声明与 riscv64 仍仅评估记档"）。经复核该引用按 docs/ 相对基准可解析，不悬空。本条**已闭环**。
 3. **aarch64 产物不进 Release** —— 差异点 1（控制器预裁定，待用户追认）：维持 M6 三形态（ISO/kernel/ramdisk，x86_64），aarch64 仅作 CI artifact。本验收按此裁定核验，M8-04 判 PASS。
-4. **spec-consistency 的里程碑白名单仍停在 M7**（ci.yml:194 元组为 `("M0"…"M7")`）—— 本次追加的 M8 章节不在该门禁保护范围内（被删也不会红）。属门禁增强项，不是本里程碑判据，不判 FAIL；建议后续里程碑把白名单扩到 M8。
+4. **spec-consistency 的里程碑白名单** —— 取证快照 `f079fab` 处元组为 `("M0"…"M7")`，M8 章节不在该门禁保护范围内（被删也不会红）；属门禁增强项、非本里程碑判据，不判 FAIL。**已由并发的 M8-6 关门提交 `dd939a0` 扩到 `("M0"…"M8")`**（当前 HEAD 实测），本条**已闭环**。注意：该改动使 spec-consistency 成为相对 `v0.7.0-m7` **唯一行为发生变化**的旧 job，方向为更严，详见 §事后复核。
 5. **本报告只覆盖 M8-01~M8-06** —— M8-6 关门（README 勾选、index 登记、merge --no-ff、tag `v0.8.0-m8`）不在本次验收范围，未执行、未预判。
 6. **gettyargs 偏离上游（口径差异，控制器已裁定接受）** —— vm-smoke-aarch64 注入的 `opt/org.toaruos.gettyargs` 为 `/dev/ttyS0 115200 ${TERM:-xterm}`，**去掉了**上游 `base/toaruos/build/aarch64.mk` shell 目标里的 `-a local` 前缀（ci.yml:419-426 已就地记档）。理由：getty `-a local` → `login -f local` → `apps/login.c:66 goto do_fork` 免密直登，**不打印** `apps/login.c:86` 的 `"%s login: "`，与 M8-02 判据"断言 `login:`（与 x86 侧同源）"直接冲突；反例 run 39039782092 已实证该形态下 OS 全启动至 `local@livecd:~$` 却拿不到 `login:`、job 判红。除该前缀外，设备节点（pl011 首串口 `/dev/ttyS0`）、波特率（115200）、TERM（`${TERM:-xterm}`，与 x86 侧同位）均出自 `aarch64.mk`，与 x86 侧 `/dev/ttyS1 115200 xterm` 同构。**这是判据内部一致性所要求的取舍，记为口径差异，不判 FAIL。**
 7. **两条已知 Minor 结转（控制器已裁定并入 M8-6 关门处理，本次不修、不判 FAIL）** —— (a) `ci.yml:421` 注释写 `apps/login.c:60 goto do_fork`，实测应为 **:66**（上游 `e77143fd` 核实）；(b) 实现报告自评 ci.yml diff **153 行**，实测 **+154 / -0**。二者均为注释/计数笔误，不影响任何判据（不论 153 还是 154，纯插入结论不变）。详见 §已知 Minor 项 1、2。
+
+---
+
+## 事后复核（并发关门提交后）
+
+验收执行期间，M8-6 关门提交 `dd939a0`（`docs: M8 closeout plumbing (README + index + M8 in milestone gate)`，+2/-2 ci.yml、+2/-1 README.md、+1 docs/index.md）与本报告的提交并发落在 `feat/m8-aarch64` 上，当前 HEAD 为 `c570714`。该提交**不在 M8-01~M8-06 验收范围内**，但为避免本报告留下与 HEAD 不符的陈述，按同一方法（pyyaml job 级对象比对 + 字节比对）对当前 HEAD 复核一次：
+
+| 复核项 | `c570714` 实测 | 与快照 `f079fab` 的关系 |
+|---|---|---|
+| `release.yml` vs `v0.7.0-m7` | 2441 vs 2441 **字节全等**；2 job 对象全等；`changed=NONE` | 不变，**M8-04 仍成立** |
+| `ci.yml` vs `v0.7.0-m7` | `pure_insertion=False`，**added 155 / removed 1** | 快照为 `+154/-0` 纯插入；多出的 1 处 replace 即 `dd939a0` 的白名单行 |
+| ci.yml job 集合 | 8 → 10，`removed=[]`，`added=[build-aarch64, vm-smoke-aarch64]` | 不变，**旧八 job 无一被删** |
+| ci.yml 旧 job 对象 | **`changed=['spec-consistency']`**（唯一） | 快照为 `changed=NONE`；变化内容为白名单 `("M0"…"M7")` → `("M0"…"M8")` + 注释 `:60`→`:66` |
+| `kernel/ tools/ config/ base/toaruos` | `dd939a0` 未触碰 | 不变，**M8-05 仍成立** |
+
+对 **M8-03「旧八 job 零回退」** 的诚实结论：
+
+- **以验收对象 `f079fab` 为准，M8-03 PASS 不变** —— 该处 ci.yml 相对 `v0.7.0-m7` 确为 `+154/-0` 纯插入、旧八 job 对象全等。这是 M8 实现本身的状态，也是本条判据要验的东西。
+- **`c570714` 上 ci.yml 不再是"纯插入"** —— 多出的 1 处 replace 来自 M8-6 关门提交，**不是 M8 实现引入的**。
+- **该变化不构成回退**：spec-consistency 的唯一改动是把 M8 章节纳入已存在的章节存在性门禁，方向为**更严**（原先 M8 章节被删不会红，现在会红），且未放宽任何断言、未加 `continue-on-error`、未加 suppress。按"方向只许更严"的既有惯例，属门禁增强而非回退。
+
+建议终审时以 `f079fab` 的快照数据裁定 M8-03，并把 `dd939a0` 的门禁增强并入 M8-6 关门的复核范围，避免两条判据互相牵连。
 
 ---
 
@@ -311,6 +334,6 @@ $ gh api .../compare/v0.7.0-m7...feat/m8-aarch64 --jq '.commits[] | {sha,parents
 
 ---
 
-**总判定：M8-01 ~ M8-06 六条全部 PASS，阻塞缺陷 0；4 条 Minor 均为记档项（1–3 控制器已裁定，4 为本次新发现），交控制器 / M8-6 关门任务裁量。**
+**总判定：M8-01 ~ M8-06 六条全部 PASS（判定以验收对象 `f079fab` 为准），阻塞缺陷 0；4 条 Minor 均为记档项 —— 1 已由并发的 `dd939a0` 订正不再挂账，2、3 控制器已裁定接受，4（aarch64 screendump 不具区分力）为本次新发现，交控制器 / M8-6 关门任务裁量。**
 
 **STATUS: PASS**
