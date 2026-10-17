@@ -17,6 +17,8 @@ from jsonschema.exceptions import SchemaError
 
 REPO = Path(__file__).resolve().parent.parent
 SCHEMA_PATH = REPO / "plugins" / "schema" / "plugin.schema.json"
+# M9 v2:schema 契约版本锁定 "2";v1 已被取代(spec §2.4 契约版本化,约束 39)
+SCHEMA_VERSION = "2"
 # spec §3.2 三类目录;compat/ 不扫描(M2 无翻译运行时实体,约束 13)
 CATEGORIES = ("builtin", "optional", "dev")
 FAILURES: list[str] = []
@@ -48,12 +50,68 @@ def load_schema_validator():
     return Draft202012Validator(schema)
 
 
+def tree_plugin_ids():
+    """收集全树已声明的插件 id(只读 name,不触发任何校验/不登记 FAILURES)。
+    供单文件模式(--file)的 dependencies 存在性断言使用:负例夹具在 /tmp,仍需对照真实插件树判存在性。"""
+    ids = set()
+    for cat in CATEGORIES:
+        base = REPO / "plugins" / cat
+        if not base.is_dir():
+            continue
+        for jf in sorted(base.glob("*/*.json")):
+            if jf.name.upper().startswith("README"):
+                continue
+            try:
+                with open(jf, encoding="utf-8") as fh:
+                    data = json.load(fh)
+            except (OSError, json.JSONDecodeError):
+                continue
+            if isinstance(data, dict) and isinstance(data.get("name"), str):
+                ids.add(data["name"])
+    return ids
+
+
+def dependency_checks(path, manifest):
+    """M9 v2 dependencies 断言(约束 40 ①②):自依赖 + 重复。
+    不依赖全树知识,故在单 manifest 层执行;重复的 schema 层 uniqueItems 已挡,此处给更可读的原因。"""
+    deps = manifest.get("dependencies")
+    if not isinstance(deps, list):  # 未声明(无依赖)或形态非数组(由 schema 报错)
+        return
+    name = manifest.get("name")
+    seen = set()
+    for dep in deps:
+        if not isinstance(dep, str):
+            continue
+        if isinstance(name, str) and dep == name:
+            fail(path, f"dependencies: self-dependency '{dep}' — a plugin cannot depend on itself (M9 v2, 约束 40)")
+        if dep in seen:
+            fail(path, f"dependencies: duplicate entry '{dep}' — dependencies must be a set of distinct plugin ids (M9 v2, 约束 40)")
+        seen.add(dep)
+
+
+def dependency_existence_checks(path, manifest, known):
+    """M9 v2 dependencies 断言(约束 40 ③):被引 id 必须在插件树中存在。
+    需要全树 id 集合,故只在扫描完成(全树模式)或拿到全树 id(单文件模式)后执行。
+    依赖环不在此处判定 —— 属装载期语义,由 tools/load_plugins.py 检测(约束 41)。"""
+    deps = manifest.get("dependencies")
+    if not isinstance(deps, list):
+        return
+    missing = sorted({dep for dep in deps if isinstance(dep, str) and dep not in known})
+    if missing:
+        fail(path, f"dependencies: {', '.join(repr(d) for d in missing)} not found in plugin tree — every dependency must reference an existing plugin id (M9 v2, 约束 40)")
+
+
 def semantic_checks(path, manifest, schema_validator, names, file_mode):
     """职责 3(schema 结构校验)+ 职责 4(语义校验);目录类别按路径中类别段推断(spec §3.2)。"""
     for err in sorted(schema_validator.iter_errors(manifest), key=lambda e: e.json_path):
-        fail(path, f"schema: {err.message}")  # 职责 3: 结构校验(schema v1,计划 Task 2)
+        fail(path, f"schema: {err.message}")  # 职责 3: 结构校验(schema v2,计划 Task 2)
     if not isinstance(manifest, dict):
         return
+    # 职责 4e(M9 v2,约束 39):schema_version 必须等于当前契约版本;旧版本明确拒绝并给迁移提示
+    sv = manifest.get("schema_version")
+    if sv != SCHEMA_VERSION:
+        fail(path, f"manifest schema_version {sv!r} is superseded by {SCHEMA_VERSION!r}; migrate: set \"schema_version\": \"{SCHEMA_VERSION}\" in this plugin.json (spec §2.4 契约版本化, M9 约束 39)")
+    dependency_checks(path, manifest)  # 职责 4f(M9 v2): 自依赖 / 重复依赖
     name = manifest.get("name")
     if isinstance(name, str):  # 职责 4a: name 全树唯一(spec §3.2 插件目录即插件)
         if name in names:
@@ -119,6 +177,11 @@ def validate_tree(config_path, schema_validator):
     for path, manifest in manifests:
         if isinstance(manifest, dict) and isinstance(manifest.get("name"), str):
             by_name.setdefault(manifest["name"], []).append((path, manifest))
+    # 职责 4g(M9 v2): dependencies 存在性 —— 全树扫描完成后才可做,故与 4f 分开
+    known_ids = set(by_name)
+    for entries in by_name.values():
+        for path, manifest in entries:
+            dependency_existence_checks(path, manifest, known_ids)
     for pid in enabled:
         hits = by_name.get(pid, [])
         if len(hits) != 1:  # 职责 5: enabled id 必须命中恰好一个 manifest
@@ -128,7 +191,7 @@ def validate_tree(config_path, schema_validator):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="EtherOS plugin manifest validator (M2, schema v1)")
+    ap = argparse.ArgumentParser(description="EtherOS plugin manifest validator (M2, schema v2 as of M9)")
     ap.add_argument("--file", help="validate a single manifest file (skips config consistency)")
     ap.add_argument("--config", default=str(REPO / "config" / "default.toml"), help="config TOML path")
     args = ap.parse_args()  # 职责 7: --file/--config,两参数缺省 = 全树校验
@@ -137,6 +200,7 @@ def main():
         manifest = load_json(args.file)
         if manifest is not None and schema_validator is not None:
             semantic_checks(args.file, manifest, schema_validator, {}, file_mode=True)
+            dependency_existence_checks(args.file, manifest, tree_plugin_ids())
     else:
         validate_tree(Path(args.config), schema_validator)
     if FAILURES:

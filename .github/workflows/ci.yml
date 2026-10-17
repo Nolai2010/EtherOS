@@ -200,9 +200,13 @@ jobs:
             if not (root / ref).exists():
               fails.append(f".etherkit/AGENTS.md references missing spec: {ref}")
           # (d) schema version anchor
+          # M9 同步说明(M9-06):schema v1 → v2 是 spec §2.4「字段变更 = schema_version 变更」的
+          # 真实升级,锚点随契约版本从 "1" 改为 "2"。这是**同步**而非消音 —— 断言本身
+          # (const 必须等于当前契约版本)与严格度一字未变,改的只是"当前版本"这个事实;
+          # 若 schema 被改回 "1" 或漂移到 "3",本条依旧红。
           schema = json.loads((root / "plugins" / "schema" / "plugin.schema.json").read_text(encoding="utf-8"))
-          if schema.get("properties", {}).get("schema_version", {}).get("const") != "1":
-            fails.append("plugin.schema.json schema_version anchor drifted from \"1\"")
+          if schema.get("properties", {}).get("schema_version", {}).get("const") != "2":
+            fails.append("plugin.schema.json schema_version anchor drifted from \"2\"")
           if fails:
             print("\n".join(fails)); sys.exit(1)
           print("spec consistency: OK")

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "plugin.schema.json",
-  "title": "EtherOS plugin manifest schema v1",
-  "description": "EtherOS 插件 manifest 契约 v1(M2 锁定)。字段集合逐字锚定 spec/2026-10-05-etheros-dev-policy.md §2.2/§3.2,无 spec 外字段(§2.4 契约版本化:任何字段变更 = schema_version 变更)。目录级规则(builtin/dev ⇒ uninstallable=false,optional ⇒ true)与 payload 存在性属 validator 语义层(tools/validate_plugins.py),不在本 schema 表达。capabilities/tools/resources 为 MCP 式原语,仅字段形态对齐,M2 不做 MCP 协议/传输/会话语义。",
+  "title": "EtherOS plugin manifest schema v2",
+  "description": "EtherOS 插件 manifest 契约 v2(M2 锁定 v1,M9 升级至 v2)。字段集合逐字锚定 spec/2026-10-05-etheros-dev-policy.md §2.2/§3.2,无 spec 外字段(§2.4 契约版本化:任何字段变更 = schema_version 变更)。v2 相对 v1 的变更点:新增可选字段 dependencies(本插件依赖的其它插件 id 列表),其余字段与 v1 逐字相同;dependencies 为可选、不进 required,不声明或空数组即无依赖。v1 已被取代:validator 对 schema_version==\"1\" 的 manifest 明确拒绝并给出迁移提示。目录级规则(builtin/dev ⇒ uninstallable=false,optional ⇒ true)与 payload 存在性属 validator 语义层(tools/validate_plugins.py),不在本 schema 表达;dependencies 的存在性/自依赖/重复亦由 validator 语义层断言,依赖环由装载器(tools/load_plugins.py)检测。capabilities/tools/resources 为 MCP 式原语,仅字段形态对齐,M2 不做 MCP 协议/传输/会话语义。",
   "type": "object",
   "required": [
     "schema_version",
@@ -16,8 +16,8 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "const": "1",
-      "description": "契约版本,锁定 v1(spec §2.4)。"
+      "const": "2",
+      "description": "契约版本,锁定 v2(spec §2.4)。v1 已被取代,v1 manifest 须迁移至 v2。"
     },
     "name": {
       "type": "string",
@@ -80,6 +80,12 @@
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
       "description": "MCP 式原语:资源声明(spec §2.2);M2 不做语义路由。"
+    },
+    "dependencies": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+      "uniqueItems": true,
+      "description": "本插件依赖的其它插件 id 列表(M9 v2 新增,可选)。元素 pattern 与 name 一致;存在性/自依赖/重复由 validator 语义层断言;依赖环由装载器检测。"
     }
   },
   "allOf": [
