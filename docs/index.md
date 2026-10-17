@@ -30,6 +30,7 @@
 | `../tools/check_kernel_boundary.py` | 内核边界守卫(M4):`python3 tools/check_kernel_boundary.py` 断言 vendored 指针一致+kernel/ 白名单+格式字面量零命中+manifest 契约对齐;CI etherkit-consistency 每跑 |
 | `docs/reports/2026-10-06-m4-acceptance.md` | M4 独立验收报告（9/9 PASS） |
 | `docs/reports/2026-10-06-m5-acceptance.md` | M5 独立验收报告（7/7 PASS，3 条 PASS-with-note；含门禁消音红线复核） |
-| `docs/reports/2026-10-06-m6-acceptance.md` | M6 独立验收报告（4 PASS / 2 PENDING；含 OVA 降级与 v1.0.0 留决策记档） |
+| `docs/reports/2026-10-06-m6-acceptance.md` | M6 独立验收报告（六条全 PASS；含 OVA 降级与 v1.0.0 留决策记档、ramdisk 跨 run 字节漂移记档） |
 | `../RELEASE_NOTES.md` | 发布说明（M6）：v0.6.0-m6 Phase 1 收官内容、v0.x.0-mN 版本惯例与 v1.0.0 留用户决策、三形态产物与 OVA 降级 Phase 2 记档；release.yml 以 `--notes-file` 消费 |
 | `../CONTRIBUTING.md` | 贡献流程（M7-03）：DCO 签核 `git commit -s`（merge commit 豁免记档）、里程碑短命分支 `feat/m<N>-<slug>` → `merge --no-ff` 进主分支 → annotated tag `v0.x.0-mN`、验收闭环（实现者≠审查者、禁止自评、验收未过不合门不打 tag） |
+| `docs/reports/2026-10-11-phase2-feasibility.md` | Phase 2 可行性调研（M7-06）：aarch64 构建（建议做，附两步最小 CI 路径）与 OVA 打包（建议不做，维持 M6 差异点 8 降级）的结论、成本量级与诚实边界；ci.yml/release.yml 零改动 |
