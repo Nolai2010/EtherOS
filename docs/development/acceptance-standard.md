@@ -127,6 +127,17 @@ M1(底座基线)/M2(schema+配置)/M3(兼容桩)/M4(内建归位)/M5(CI 六项)/
 | M9-05 | 契约同步：kernel/interfaces/loader-contract.md 与 loader_if.h 反映 load_order 的拓扑语义，notes 中"无依赖排序来源"表述已更新；契约键名集合不变 | 文件实读 + 键名比对 |
 | M9-06 | 旧门禁零回退 + schema 锚点同步：ci.yml 的 spec-consistency 对 schema_version 的断言同步为 "2"（非消音），其余九 job 名与行为不变 | CI 十 job 全绿 + diff 复核 |
 
+## M10 · translator 真实现（`.desktop` 描述符级端到端翻译）
+
+| 编号 | 标准 | 验证方式 |
+|---|---|---|
+| M10-01 | 真 translator 存在：plugins/compat/desktop-entry/translator.py 解析 `.desktop`（[Desktop Entry]/Name/Exec/Type 等），成功时输出 `status: "translated"` 并**真实产出** manifest + payload 包装（非仅翻译计划）；沿用 M3 的 --manifest/--payload 接口契约 | CLI 实跑 + 产物存在性 |
+| M10-02 | 产物过 v2 校验：翻译产出的 manifest 能被 tools/validate_plugins.py 接受（schema v2），payload 文件真实存在 | `validate_plugins.py --file` 实跑 exit 0 |
+| M10-03 | 端到端闭环：示例插件 plugins/optional/demo-desktop-app/ 的 foreign payload 经翻译后，能被 tools/load_plugins.py 纳入装载计划（enabled 后） | load_plugins 实跑 + 计划含该插件 |
+| M10-04 | 诚实边界：translator 输出与 README 明写"描述符级翻译，非二进制指令翻译"；plugins/optional/douyin/ 与 stub-runtime 仍为 stub，未借本里程碑改口径 | 文件实读 + douyin/stub 零改动证明 |
+| M10-05 | 负例：缺失关键字段（无 Exec）、非法格式（非 .desktop 文本）、空文件 → 各自非 0 退出并给出原因 | 三条负例实跑 |
+| M10-06 | 旧门禁零回退：十 job 名与行为不变，release.yml 零 diff，stub-runtime 与 douyin 零改动 | CI 十 job 全绿 + diff 复核 |
+
 ## M1 · 底座基线(归档:经独立验收)
 
 > 本章节为**归档补录**(2026-10-06 追加):M1 验收执行时本文档尚无 M1 章节(见验收报告口径差异段 1),
