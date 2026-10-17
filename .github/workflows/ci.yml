@@ -336,3 +336,36 @@ jobs:
             serial-com2.log
             screen.ppm
           if-no-files-found: warn
+
+  build-aarch64:
+    # 上游官方 aarch64 构建路径,与 build job(x86_64)同源、仅两处不同:
+    # 镜像 toaruos/build-tools:1.99.x -> toaruos/build-tools:aarch64,
+    # 入口 util/build-in-docker.sh -> util/build-in-docker-aarch64.sh
+    # (内部 make ARCH=aarch64;system 目标产出 misaka-kernel/ramdisk.igz/
+    # bootstub/kernel8.img,见 build/aarch64.mk 与上游 .github/workflows/aarch64.yml,
+    # 依据 docs/reports/2026-10-11-phase2-feasibility.md 议题一)。
+    name: build ToaruOS aarch64 base (upstream builder image)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build aarch64 base OS (upstream builder image, per docs/reports/2026-10-11-phase2-feasibility.md)
+        run: |
+          docker pull toaruos/build-tools:aarch64
+          docker run -v ${{ github.workspace }}/base/toaruos:/root/misaka -w /root/misaka -e LANG=C.UTF-8 -t toaruos/build-tools:aarch64 util/build-in-docker-aarch64.sh
+
+      - name: Collect aarch64 boot artifacts
+        run: |
+          mkdir -p artifacts
+          find base/toaruos -maxdepth 2 -type f \( -name "misaka-kernel" -o -name "*.igz" -o -name "bootstub" -o -name "kernel8.img" \) -exec cp {} artifacts/ \; || true
+          ls -la artifacts/
+
+      - name: Upload aarch64 boot artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: etheros-aarch64-artifacts
+          path: artifacts/
+          if-no-files-found: warn
