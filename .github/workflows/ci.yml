@@ -425,7 +425,15 @@ jobs:
             -append "root=/dev/ram0 migrate start=--headless" \
             -fw_cfg name=opt/org.toaruos.initrd,file="$INITRD" \
             -fw_cfg name=opt/org.toaruos.kernel,file="$KERNEL" \
-            -fw_cfg "name=opt/org.toaruos.gettyargs,string=-a local /dev/ttyS0 115200 ${TERM:-xterm}" \
+            # gettyargs 与 aarch64.mk shell 目标的差异(round 3 实证后裁定):
+            # 上游 shell 目标用 "-a local ..."(getty -a local → login -f local,
+            # apps/login.c:60 goto do_fork 免密直登,不打印 apps/login.c:86 的
+            # "login: ";serial 实况见 run 39039782092:全链路在跑、止于
+            # local@livecd:~$,但无 login: 字符串)。M8-02 要求断言 login:
+            # (与 x86 侧 vm-smoke 同字符串同源),故去掉 -a local 前缀,其余保持
+            # 上游格式(/dev/ttyS0 115200 xterm;波特率与 term 均出自 aarch64.mk,
+            # 设备节点为 pl011 首串口,与 x86 侧 /dev/ttyS1 115200 xterm 同构)。
+            -fw_cfg "name=opt/org.toaruos.gettyargs,string=/dev/ttyS0 115200 ${TERM:-xterm}" \
             -serial file:serial-aarch64.log \
             -qmp unix:/tmp/qmp-aarch64.sock,server,nowait \
             &
