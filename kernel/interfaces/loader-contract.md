@@ -31,9 +31,9 @@
 | `contract` | 固定指向本契约文件 `"kernel/interfaces/loader-contract.md"` |
 | `stage` | 当前阶段字符串;M7 计划阶段取 `"M7-loader-plan"` |
 | `enabled` | 参与装载的插件条目数组(**顺序即装载顺序**) |
-| `load_order` | 装载顺序(插件 id 列表,与 `enabled` 各项 `id` 同序) |
+| `load_order` | 装载顺序(插件 id 列表,与 `enabled` 各项 `id` 同序):**依赖拓扑序**(被依赖者在前);**无依赖时退化为目录序**(builtin → dev → optional,各类内目录名字典序) |
 | `skipped` | 树中存在但未进入计划的插件 + 原因 |
-| `notes` | 诚实声明(未真正装载、依赖排序无来源等) |
+| `notes` | 诚实声明(未真正装载、依赖拓扑/环检测口径、装载期边界等) |
 
 `enabled[]` 每项(**逐字**):
 
@@ -50,8 +50,11 @@
 
 ## 3. 装载顺序
 
-- 顺序 = **builtin → dev → optional**;各类内部按**目录名字典序**。
-- schema v1 **无 `dependencies` 字段** → 依赖顺序无来源,按"无依赖顺序约束"处理;该事实必须在计划 JSON 的 `notes` 里记档,**不得**自造 `dependencies` 字段(那会破坏 schema 契约)。
+- **顺序 = 依赖拓扑序**:manifest(schema v2 起)的可选 `dependencies` 字段声明本插件依赖的其它插件 id;**被依赖者排在前**(A 依赖 B ⇒ B 在 A 之前);同批就绪者按目录序消费。
+- **无依赖时退化为目录序**:未声明 `dependencies`(或空数组)⇒ 顺序 = **builtin → dev → optional**,各类内部按**目录名字典序**(与 M7/M8 的既有输出逐项一致)。
+- **依赖环 = 拒绝**:依赖图成环 ⇒ 生成器**拒绝**产出计划,非 0 退出并列出环上成员(见 §5-5);不得静默跳过、不得降级为 warn。
+- **依赖必须被启用**:被依赖的 id 必须落在本次装载的启用集里;树中存在但本次未启用(例如 optional 未列入 `[plugins] enabled`)⇒ 同样拒绝(见 §5-4)。
+- 分层口径(M9 约束 41):**validator** 管"插件树里有没有这个 id"(存在性 / 自依赖 / 重复,静态单 manifest 断言);**loader** 管"这一次装载有没有启用它"以及"依赖图是否成环"(跨 manifest 的装载期语义)。
 
 ## 4. 启用来源(Global Constraint 12)
 
@@ -64,7 +67,9 @@
 
 1. config 里出现**不存在的插件 id**(树中找不到)→ 拒绝(`loader_if.h` 之 `ETHEROS_ENOENT`);
 2. 插件目录**缺 `plugin.json` 或 JSON 非法** → 拒绝(`ETHEROS_EINVAL`);
-3. manifest 声明的 **payload 解析后不存在** → 拒绝(`ETHEROS_EINVAL`;与 M2 validator 的 payload 存在性语义一致)。
+3. manifest 声明的 **payload 解析后不存在** → 拒绝(`ETHEROS_EINVAL`;与 M2 validator 的 payload 存在性语义一致);
+4. 依赖的插件 id **未在本次装载的启用集里**(树中不存在 ⇒ `ETHEROS_ENOENT`;树中存在但本次未启用 ⇒ 配置未启用该依赖) → 拒绝;
+5. **依赖图成环** → 拒绝(`ETHEROS_EINVAL`),错误中列出环上成员(约束 41)。
 
 ## 6. 机器可读形态
 
