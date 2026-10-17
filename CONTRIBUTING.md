@@ -44,3 +44,4 @@ git commit -s -m "主题一行,不超过 72 字符"
 | `docs/builder-reviewer-separation.md` | 写实现 ≠ 审查的规则与理由 |
 | `docs/index.md` | 文档索引(新增/移动文档必须同步更新该表) |
 | `docs/experience-library/lessons.md` | 教训库(只增不改) |
+| `docs/experience-library/active-rules.md` | 强制规则(同一问题复发 ≥2 次升级登记;当前为空表占位,首条复发即登记) |
