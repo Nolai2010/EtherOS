@@ -191,7 +191,7 @@ jobs:
           # M7-01 白名单扩到 M7:旧元组停在 M5,M6/M7 两个已入库章节不受本道门禁
           # 保护(删了也不红)。二者当前确实存在于 acceptance-standard.md,扩了是
           # 门禁增强、不会假红。方向只许更严。
-          for m in ("M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7"):
+          for m in ("M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8"):
             if not any(line == f"## {m}" or line.startswith(f"## {m} ") for line in std_lines):
               fails.append(f"acceptance-standard.md missing section: {m}")
           # (c) spec anchor referenced by .etherkit/AGENTS.md
@@ -418,7 +418,7 @@ jobs:
           # headless 启动链路不受影响(start=--headless 不启 GUI)。
           # gettyargs 与 aarch64.mk shell 目标的差异(round 3 实证后裁定):
           # 上游 shell 目标用 "-a local ..."(getty -a local → login -f local,
-          # apps/login.c:60 goto do_fork 免密直登,不打印 apps/login.c:86 的
+          # apps/login.c:66 goto do_fork 免密直登,不打印 apps/login.c:86 的
           # "login: ";serial 实况见 run 39039782092:全链路在跑、止于
           # local@livecd:~$,但无 login: 字符串)。M8-02 要求断言 login:
           # (与 x86 侧 vm-smoke 同字符串同源),故去掉 -a local 前缀,其余保持
