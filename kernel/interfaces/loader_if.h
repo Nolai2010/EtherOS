@@ -83,9 +83,16 @@ typedef struct etheros_skip_entry {
 } etheros_skip_entry;
 
 /* Load plan: the ordered set of entries plus the skipped ones.  The
- * order of "entries" IS the load order.  Schema v1 carries no
- * dependency field, so the order is provenance order: builtin, then
- * dev, then optional (lexicographic within each category). */
+ * order of "entries" IS the load order.  Since schema v2 a manifest
+ * may declare the optional "dependencies" array (ids of the plugins
+ * it depends on): the load order is then the dependency TOPOLOGICAL
+ * order, a dependency always preceding its dependent.  With no
+ * dependency declared the order degenerates to provenance order:
+ * builtin, then dev, then optional (lexicographic within each
+ * category) -- byte-identical to the pre-v2 output.  A dependency
+ * cycle, or a dependency absent from this load's enabled set, is
+ * rejected (plan_load returns EINVAL / ENOENT) -- never silently
+ * skipped. */
 typedef struct etheros_load_plan {
     etheros_load_entry *entries;
     unsigned int        count;
@@ -98,8 +105,8 @@ typedef struct etheros_load_plan {
 /* ------------------------------------------------------------------ */
 
 #define ETHEROS_OK     0    /* plan produced */
-#define ETHEROS_ENOENT (-1) /* config-enabled id matches no manifest in the tree */
-#define ETHEROS_EINVAL (-2) /* missing/invalid manifest or dangling payload ref */
+#define ETHEROS_ENOENT (-1) /* enabled id or dependency matches no manifest */
+#define ETHEROS_EINVAL (-2) /* bad manifest, dangling payload, bad dependency */
 
 /* ------------------------------------------------------------------ */
 /* Primitive: plan_load                                                */
@@ -107,9 +114,13 @@ typedef struct etheros_load_plan {
 /*   Resolve the config-declared enabled set against the plugin tree   */
 /*   and produce an ordered load plan.  This is a PLANNING primitive:  */
 /*   it binds nothing and starts nothing.                              */
+/*   Order: dependency topological order (dependency first); with no   */
+/*   dependency declared, provenance order.                            */
 /*   Unknown enabled id => ETHEROS_ENOENT; missing/invalid manifest    */
-/*   or dangling payload reference => ETHEROS_EINVAL (never silently    */
-/*   skip an entry the config asked for).                              */
+/*   or dangling payload reference => ETHEROS_EINVAL (never silently   */
+/*   skip an entry the config asked for).  A dependency outside this   */
+/*   load's enabled set => ENOENT; a dependency cycle => EINVAL with   */
+/*   the cycle members reported.                                       */
 /* ------------------------------------------------------------------ */
 int etheros_plan_load(const etheros_load_request *request, etheros_load_plan *out_plan);
 

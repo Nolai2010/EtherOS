@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate plugin manifests against schema v1
+      - name: Validate plugin manifests against schema v2
         run: |
           python3 -m pip install --quiet jsonschema
           python3 tools/validate_plugins.py
@@ -70,6 +70,47 @@ jobs:
           python3 tools/load_plugins.py | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['status']=='plan-only'; print('LOAD PLAN OK', len(d['enabled']))"
           printf '[plugins]\nenabled = ["no-such-plugin"]\n' > /tmp/bogus.toml
           ! python3 tools/load_plugins.py --config /tmp/bogus.toml
+
+      - name: Dependency topology smoke (M9 load_plugins dependencies)
+        # M9-04:schema v2 起 manifest 支持可选 dependencies,load_order 由依赖拓扑决定
+        # (被依赖者在前),依赖成环 → 非 0 退出并列出环上成员(约束 41:不静默、不降级 warn)。
+        # 夹具树建在 /tmp(仓库内不新增文件):正例 alpha 依赖 beta(目录序 alpha<beta<gamma,
+        # 断言 beta 下标 < alpha 下标,非只 echo);负例 a↔b 互赖成环(断言非 0 退出)。
+        # --config 指向空 enabled 的夹具配置:仓库 config/default.toml 启用的 hello-plugin/
+        # douyin 不在夹具树里,会先撞 §5-1 ENOENT 而掩盖本条断言。
+        run: |
+          mkdir -p /tmp/m9-dep/builtin/alpha /tmp/m9-dep/builtin/beta /tmp/m9-dep/builtin/gamma
+          mkdir -p /tmp/m9-cycle/builtin/a /tmp/m9-cycle/builtin/b
+          for d in /tmp/m9-dep/builtin/*/ /tmp/m9-cycle/builtin/*/; do : > "$d/payload.bin"; done
+          printf '[plugins]\nenabled = []\n' > /tmp/m9-empty.toml
+          cat > /tmp/m9-dep/builtin/alpha/plugin.json <<'JSON'
+          {"schema_version": "2", "name": "alpha", "version": "0.1.0", "type": "native", "uninstallable": false,
+           "payload": "payload.bin", "container": {"desktop": "windowed"}, "dependencies": ["beta"]}
+          JSON
+          cat > /tmp/m9-dep/builtin/beta/plugin.json <<'JSON'
+          {"schema_version": "2", "name": "beta", "version": "0.1.0", "type": "native", "uninstallable": false,
+           "payload": "payload.bin", "container": {"desktop": "windowed"}}
+          JSON
+          cat > /tmp/m9-dep/builtin/gamma/plugin.json <<'JSON'
+          {"schema_version": "2", "name": "gamma", "version": "0.1.0", "type": "native", "uninstallable": false,
+           "payload": "payload.bin", "container": {"desktop": "windowed"}}
+          JSON
+          cat > /tmp/m9-cycle/builtin/a/plugin.json <<'JSON'
+          {"schema_version": "2", "name": "a", "version": "0.1.0", "type": "native", "uninstallable": false,
+           "payload": "payload.bin", "container": {"desktop": "windowed"}, "dependencies": ["b"]}
+          JSON
+          cat > /tmp/m9-cycle/builtin/b/plugin.json <<'JSON'
+          {"schema_version": "2", "name": "b", "version": "0.1.0", "type": "native", "uninstallable": false,
+           "payload": "payload.bin", "container": {"desktop": "windowed"}, "dependencies": ["a"]}
+          JSON
+          python3 tools/load_plugins.py --plugins-root /tmp/m9-dep --config /tmp/m9-empty.toml | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          o = d['load_order']
+          assert o.index('beta') < o.index('alpha'), f'dependency must precede dependent: {o}'
+          assert [e['id'] for e in d['enabled']] == o, 'enabled order must equal load_order'
+          print('TOPO OK', o)"
+          ! python3 tools/load_plugins.py --plugins-root /tmp/m9-cycle --config /tmp/m9-empty.toml
 
   license:
     name: license (reuse lint, submodules excluded per spec 5 / risk 2)
@@ -191,7 +232,8 @@ jobs:
           # M7-01 白名单扩到 M7:旧元组停在 M5,M6/M7 两个已入库章节不受本道门禁
           # 保护(删了也不红)。二者当前确实存在于 acceptance-standard.md,扩了是
           # 门禁增强、不会假红。方向只许更严。
-          for m in ("M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8"):
+          # M9-3 再扩到 M9:M8 之后 M9 章节亦已入库,同理扩了是门禁增强、不会假红。
+          for m in ("M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9"):
             if not any(line == f"## {m}" or line.startswith(f"## {m} ") for line in std_lines):
               fails.append(f"acceptance-standard.md missing section: {m}")
           # (c) spec anchor referenced by .etherkit/AGENTS.md
@@ -200,9 +242,13 @@ jobs:
             if not (root / ref).exists():
               fails.append(f".etherkit/AGENTS.md references missing spec: {ref}")
           # (d) schema version anchor
+          # M9 同步说明(M9-06):schema v1 → v2 是 spec §2.4「字段变更 = schema_version 变更」的
+          # 真实升级,锚点随契约版本从 "1" 改为 "2"。这是**同步**而非消音 —— 断言本身
+          # (const 必须等于当前契约版本)与严格度一字未变,改的只是"当前版本"这个事实;
+          # 若 schema 被改回 "1" 或漂移到 "3",本条依旧红。
           schema = json.loads((root / "plugins" / "schema" / "plugin.schema.json").read_text(encoding="utf-8"))
-          if schema.get("properties", {}).get("schema_version", {}).get("const") != "1":
-            fails.append("plugin.schema.json schema_version anchor drifted from \"1\"")
+          if schema.get("properties", {}).get("schema_version", {}).get("const") != "2":
+            fails.append("plugin.schema.json schema_version anchor drifted from \"2\"")
           if fails:
             print("\n".join(fails)); sys.exit(1)
           print("spec consistency: OK")

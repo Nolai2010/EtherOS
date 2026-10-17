@@ -9,8 +9,10 @@ base/toaruos 代码)。kernel/interfaces/loader-contract.md 的宿主侧参考�
 CLI: 缺省=读 config/default.toml + plugins/ 出计划;--config <toml>=覆盖配置(负例用);
 --plugins-root <dir>=覆盖插件根。负例(逐条 FAIL + exit 1):enabled id 树中不存在(ENOENT)/
 插件目录缺 plugin.json 或 JSON 非法(EINVAL)/manifest payload 解析后不存在(EINVAL,与 M2
-validator 同语义)。schema v1 无 dependencies 字段 → 无依赖排序来源:load_order = 目录序遍历序
-(builtin → dev → optional,各类内目录名字典序),并在 notes 记档(不自造字段,契约 §3)。"""
+validator 同语义)/依赖 id 未在本次装载的启用集里(ENOENT)/依赖成环(非 0 退出并列出环上成员,
+约束 41)。schema v2 起 manifest 支持可选 dependencies 字段 → load_order = 依赖拓扑序(被依赖者
+在前);无依赖时退化为目录序遍历序(builtin → dev → optional,各类内目录名字典序),并在 notes
+记档(不自造字段,契约 §3)。"""
 import argparse
 import json
 import sys
@@ -65,9 +67,78 @@ def load_enabled(config_path):
     return enabled
 
 
+def find_cycle(deps, remaining):
+    """在 remaining 节点上做 DFS 取一个环;返回 [n1, n2, ..., n1](首尾同节点明示闭环)。"""
+    stack, on_stack, seen = [], set(), set()
+
+    def dfs(node):
+        stack.append(node); on_stack.add(node); seen.add(node)
+        for dep in deps.get(node, ()):
+            if dep not in remaining:
+                continue
+            if dep in on_stack:
+                return stack[stack.index(dep):] + [dep]
+            if dep not in seen:
+                hit = dfs(dep)
+                if hit:
+                    return hit
+        stack.pop(); on_stack.discard(node)
+        return None
+
+    for node in sorted(remaining):
+        if node not in seen:
+            hit = dfs(node)
+            if hit:
+                return hit
+    return sorted(remaining)
+
+
+def resolve_load_order(order, deps):
+    """依赖拓扑序(Kahn):被依赖者在前;同批就绪者按入参 order(目录序)取,故无依赖时逐字退化
+    为目录序。成环 → 记 FAIL 并列出环上成员,返回 None(约束 41:不得静默跳过、不得只 warn)。"""
+    rank = {pid: i for i, pid in enumerate(order)}
+    indeg = {pid: 0 for pid in order}
+    dependents = {pid: [] for pid in order}
+    for pid in order:
+        for dep in deps.get(pid, ()):
+            indeg[pid] += 1
+            dependents[dep].append(pid)
+    ready = [p for p in order if indeg[p] == 0]
+    out = []
+    while ready:
+        pid = ready.pop(0)
+        out.append(pid)
+        for d in dependents[pid]:
+            indeg[d] -= 1
+            if indeg[d] == 0:
+                ready.append(d)
+        ready.sort(key=rank.get)  # 稳定排序:就绪集合始终按目录序消费
+    if len(out) != len(order):
+        cycle = find_cycle(deps, {p for p in order if indeg[p] > 0})
+        fail("dependency cycle", f"detected among: {' → '.join(cycle)} (load: EINVAL, constraint 41)")
+        return None
+    return out
+
+
+def check_dependencies(order, deps, found, config_path):
+    """依赖 id 必须落在本次装载的启用集里。分层口径(约束 41):validator 管插件树里有没有这个 id
+    (存在性 / 自依赖 / 重复),本装载器管这一次装载有没有启用它 —— 树里有但没启用同样拒绝。"""
+    planned = set(order)
+    for pid in order:
+        for dep in deps.get(pid, ()):
+            if dep in planned:
+                continue
+            if dep in found:
+                fail(config_path, f"plugin '{pid}' depends on '{dep}', which exists in the plugin tree but is not enabled in this load "
+                                  f"(optional plugins must be listed in [plugins] enabled — Global Constraint 12)")
+            else:
+                fail(pid, f"plugin '{pid}' depends on '{dep}', which matches no manifest under "
+                          f"plugins/{{builtin,dev,optional}} (load: ENOENT)")
+
+
 def build_plan(enabled, found, config_path):
-    """(entries, skipped, order);payload 悬空记 FAIL(契约 §5-3);optional 未启用进 skipped。"""
-    entries, skipped, order = [], [], []
+    """(entries, skipped, order, deps);payload 悬空记 FAIL(契约 §5-3);optional 未启用进 skipped。"""
+    entries, skipped, order, deps = [], [], [], {}
     for cat in CATEGORIES:
         group = sorted((v for v in found.values() if v[2] == cat), key=lambda v: v[0].parent.name)
         for jf, m, c in group:
@@ -80,6 +151,10 @@ def build_plan(enabled, found, config_path):
                 fail(jf, "manifest 'payload' missing or not a non-empty string (load: EINVAL)"); continue
             if not (jf.parent / payload).resolve().is_file():
                 fail(m["name"], f"payload '{payload}' does not resolve to an existing file (load: EINVAL)"); continue
+            declared = m.get("dependencies", [])
+            if not isinstance(declared, list) or not all(isinstance(d, str) for d in declared):
+                fail(jf, "manifest 'dependencies' must be an array of plugin ids (load: EINVAL)"); continue
+            deps[m["name"]] = declared
             entries.append({"id": m["name"], "type": m.get("type"), "category": c,
                             "payload": payload, "container": m.get("container"),
                             "capabilities": m.get("capabilities") or []})
@@ -87,7 +162,7 @@ def build_plan(enabled, found, config_path):
     for pid in enabled:  # 契约 §5-1: enabled id 必须命中树中 manifest(ENOENT 语义)
         if pid not in found:
             fail(config_path, f"[plugins] enabled id '{pid}' matches no manifest under plugins/{{builtin,dev,optional}} (load: ENOENT)")
-    return entries, skipped, order
+    return entries, skipped, order, deps
 
 
 def main():
@@ -99,9 +174,16 @@ def main():
     enabled = load_enabled(args.config)
     if FAILURES or enabled is None:
         print("\n".join(FAILURES)); return 1
-    entries, skipped, order = build_plan(enabled, found, args.config)
+    entries, skipped, order, deps = build_plan(enabled, found, args.config)
     if FAILURES:
         print("\n".join(FAILURES)); return 1
+    check_dependencies(order, deps, found, args.config)
+    resolved = None if FAILURES else resolve_load_order(order, deps)  # 依赖未启用时不再进图算法
+    if FAILURES or resolved is None:
+        print("\n".join(FAILURES)); return 1
+    by_id = {e["id"]: e for e in entries}
+    entries = [by_id[pid] for pid in resolved]  # enabled 顺序即装载顺序(契约 §2)
+    order = resolved
     plan = {
         "status": "plan-only",
         "contract": CONTRACT,
@@ -112,7 +194,8 @@ def main():
         "notes": [
             "plan-only:本工具只生成装载计划,未真正装载、未启动任何插件(约束 29)。",
             "启动期装载(镜像内 /etc/os/config.toml 覆盖 + 真实加载)属后续里程碑。",
-            "schema v1 无 dependencies 字段,依赖顺序无来源;load_order 为目录序遍历序(builtin → dev → optional,各类内目录名字典序)。",
+            "schema v2 起 manifest 支持可选 dependencies 字段:load_order 为依赖拓扑序(被依赖者在前);无依赖时退化为目录序遍历序(builtin → dev → optional,各类内目录名字典序)。",
+            "依赖 id 必须落在本次装载的启用集里(树里有但未启用同样拒绝);依赖成环由本装载器检测,检测到即拒绝出计划(非 0 退出并列出环上成员,约束 41)。",
             "格式无关:条目只携带 manifest 已声明的 id/type/payload 引用/容器策略/能力 token,不检视 payload 内容(契约 §1)。",
         ],
     }
