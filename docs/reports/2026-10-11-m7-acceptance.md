@@ -339,6 +339,8 @@ job count: 8
 
 最新 run（39032538853）headSHA `16dd9fb` 与分支 HEAD 一致，八 job 全 success ✅。
 
+**补记（本报告入库后）**：本报告提交 `6900234` 推送后触发 run `39033963432`，headSHA `6900234` 与该时点分支 HEAD 一致，八 job 复跑全 success（dco / lint / etherkit-consistency / plugin-schema / license / spec-consistency / build / vm-smoke）✅。两个 run 合计覆盖被验对象 SHA 与报告入库 SHA，CI 总账闭合。
+
 判定：**PASS**
 
 ---
