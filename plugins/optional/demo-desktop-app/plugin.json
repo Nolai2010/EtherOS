@@ -1,0 +1,14 @@
+{
+  "schema_version": "2",
+  "name": "demo-desktop-app",
+  "version": "0.1.0",
+  "type": "compat-bridge",
+  "uninstallable": true,
+  "payload": "app.desktop",
+  "container": {
+    "desktop": "windowed"
+  },
+  "protocols": ["desktop-entry"],
+  "translator": "plugins/compat/desktop-entry/translator.py",
+  "capabilities": ["desktop.category.utility"]
+}
