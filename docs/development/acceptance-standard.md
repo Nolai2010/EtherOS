@@ -179,3 +179,14 @@ M1(底座基线)/M2(schema+配置)/M3(兼容桩)/M4(内建归位)/M5(CI 六项)/
 | M12-04 | 诚实边界：隔离配置与契约明写"今天强制的边界 = compat-bridge 永不执行 + native env/cwd 限制；FS/NET 级仅声明，生产级安全模型属 spec Phase 2 后期"；status 不用"已隔离"式表述 | 文件实读 + grep |
 | M12-05 | 负例：未分类 capability token → 零位且记录（不静默丢弃）；装载状态条目缺 capabilities/type 字段 → 拒绝；状态 JSON 非法或 status 非 loaded → 拒绝 | 逐条实跑 |
 | M12-06 | 旧门禁零回退：route 查询/plan/load 零改动（load_plugins.py、load_state.py、ci.yml 既有 step 零改动），M3 smoke 两条 --run 断言输出不变（hello 确定性问候、douyin 翻译计划），schema/config/release.yml 零 diff | CI 十 job 全绿 + 输出回归 |
+
+## M13 · translator 直通模式（裸 `.desktop` 原样翻译）
+
+| 编号 | 标准 | 验证方式 |
+|---|---|---|
+| M13-01 | 直通模式存在：translator.py 支持 `--payload <.desktop>` 无 `--manifest` 直译（CLI 二选一互斥规则 + 直通模式 `--out` 必填），成功 `status: "translated"` 并真实产出 manifest v2 + 包装 payload | CLI 实跑 + 产物存在性 |
+| M13-02 | 向后兼容：带 `--manifest` 的全部既有调用行为与输出逐字节不变（对 v0.12.0-m12 基线比对），route_plugins --run douyin 链路不变 | 基线树比对 + 链路实跑 |
+| M13-03 | 直通产物过硬校验：过 validate_plugins.py --file（schema v2）；id 由 Name 归一化、撞名即拒（无自撞名例外）；输出键名集合与声明模式相同 | 实跑 + 键名集合比对 |
+| M13-04 | 负例：--manifest 与 --payload 同时给出 → 拒；直通缺 --out → 拒；直通 Name 撞名（如 Name=Douyin）→ 拒；既有负例（无 Exec/非法格式/空文件/Type≠Application）在直通模式同样拒 | 逐条实跑 |
+| M13-05 | 诚实边界：README 与 compat 契约同步写明直通模式语义（翻译产物非用户声明、描述符级非二进制）；零新输出键；不得宣称可运行 .desktop | 文件实读 + grep |
+| M13-06 | 旧门禁零回退：十 job 名与行为不变（既有 step 零改动、只追加），stub-runtime/douyin/demo-desktop-app/schema/config/release.yml 零 diff，M10 smoke 不失效 | CI 十 job 全绿 + diff 复核 |
