@@ -75,3 +75,36 @@
 
 - `loader_if.h`:本契约的 C 头文件桩(contract stub, not compiled)——`plan_load` 原语 + load plan 结构(load entry / skip entry / load order / isolation level),不被任何构建系统引用;其类型/返回码命名与本文件一一对应。
 - `tools/load_plugins.py`:宿主侧参考实现(纯 stdlib,不导入/链接任何 `kernel/` 与 `base/toaruos/` 代码),输出键名与本契约 §2 逐字对齐。
+
+## 7. 装载状态 JSON 契约(M11;键名即契约)
+
+§2 只管**计划**(plan);本节定义**装载状态**(load state)的键名:`tools/load_state.py`(宿主侧装载器,M11)消费 §2 装载计划、按 plan `load_order` 逐项回读 manifest 补协议/translator 字段后物化。装载状态输出顶层键(**逐字**使用,不得增删改名):
+
+| 键 | 语义 |
+| --- | --- |
+| `status` | 固定 `"loaded"`(宿主侧物化完成;**非**"已启动/已运行") |
+| `contract` | 固定指向本契约文件 `"kernel/interfaces/loader-contract.md"` |
+| `stage` | 当前阶段字符串;M11 装载阶段取 `"M11-loader-load"` |
+| `plan_contract` | 输入 plan 的 `contract` 值(必须等于本契约路径,否则拒——约束 50) |
+| `registry` | 装载登记数组(**顺序即装载顺序**,与 plan `load_order` 逐项相等) |
+| `load_order` | 装载顺序(id 列表,与 `registry` 各项 `id` 同序) |
+| `routes` | 激活路由表:协议 token → `{plugin, manifest, translator, payload}`;仅**已装载的 compat-bridge** 且声明了该 token 才激活(与 route 原语 §2.1 同口径);两个已装载插件声明同一 token ⇒ 装载期拒绝(约束 55) |
+| `skipped` | 原样承袭输入 plan 的 `skipped`(不改写) |
+| `notes` | 诚实声明(loaded 边界、isolation 计划级非强制、歧义提前口径等) |
+
+`registry[]` 每项(**逐字**):`id` / `type` / `category` / `payload` / `container` / `capabilities`(六键承袭 plan 条目语义)+ `protocols`(manifest 原样,无则 `[]`)+ `translator`(manifest 原样;无则 `null`)+ `manifest`(树内 plugin.json 相对路径)+ `isolation`(固定 `"PER_PLUGIN"`,派生声明,非强制)。
+
+装载状态是 §2 计划的**物化结果**,不改变计划契约本身:计划仍是装载集与顺序的唯一权威(约束 50),装载器只按 plan 已决之事登记;`loaded` 只表示宿主侧注册表已物化 + 路由已激活,**不表示已启动、更不表示已运行**(约束 29 延续)。
+
+## 8. 装载状态拒绝语义(M11;负例,逐条原因 + 非 0 退出)
+
+以下任一情形,`tools/load_state.py` **拒绝**产出装载状态:逐条打印原因、以非 0 退出、**不输出**状态 JSON:
+
+1. 输入**非 JSON 对象** → 拒绝(`ETHEROS_EINVAL`);
+2. `status != "plan-only"`(输入不是 §2 契约的装载计划) → 拒绝(`ETHEROS_EINVAL`);
+3. `contract` **非本契约**(输入不是本契约的计划) → 拒绝(`ETHEROS_EINVAL`);
+4. plan 条目 **id 在树中不存在** → 拒绝(`ETHEROS_ENOENT`);
+5. manifest 与 plan 条目 **payload 引用不符** → 拒绝(`ETHEROS_EINVAL`);
+6. **payload 解析后不存在**(悬空引用,与 §5-3 同口径) → 拒绝(`ETHEROS_EINVAL`);
+7. `load_order` **与条目 id 集不一致** → 拒绝(`ETHEROS_EINVAL`);
+8. **协议 token 激活冲突**(两个已装载条目声明同一 token,约束 55) → 拒绝(`ETHEROS_EAMBIGUOUS`)。
