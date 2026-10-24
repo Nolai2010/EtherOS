@@ -72,7 +72,7 @@ translator.py --payload <系统里的 .desktop 路径> --out <输出目录>
 - 两模式**共用同一解析/门禁/归一化/产物代码路径**；result JSON 与 manifest 键名集合两模式**逐字相同**（零新输出键，约束 66——模式差异只存在于 CLI 调用与文档，不进产物）。
 - **产物是翻译产物，不是用户声明**：直通模式生成的 manifest 由本 translator 推导生成（id 由 `Name` 归一化而来），与手写的源声明 JSON 性质不同；它同样只是描述符级翻译的产物，见上方诚实边界。
 
-## 负例（六条，各自 exit 2 + 原因）
+## 负例（七条，各自 exit 2 + 原因）
 
 | 负例 | 触发 | 结果 |
 |---|---|---|
@@ -82,8 +82,9 @@ translator.py --payload <系统里的 .desktop 路径> --out <输出目录>
 | ④ 参数互斥 | `--manifest` 与 `--payload` 同时给出（或都不给） | exit 2，`give exactly one of --manifest/--payload` |
 | ⑤ 直通缺 `--out` | `--payload` 无 `--manifest` 且未给 `--out` | exit 2，`passthrough mode (--payload without --manifest) requires --out …` |
 | ⑥ 直通撞名 | 直通 `Name=Douyin`（归一化 id 撞已声明插件） | exit 2，`normalized plugin id 'douyin' … collides with an existing plugin id …`（无"重翻译自身"例外） |
+| ⑦ `Type=Link` | `Type` 非 `Application`（`Link` / `Directory`） | exit 2，`desktop entry Type='Link' is not supported — only Type=Application maps to a compat-bridge plugin (Type=Link/Directory have no Exec payload to bridge)` |
 
-另有 `Type=Link` / `Type=Directory` 拒绝、非 UTF-8 二进制 payload 拒绝、id 冲突拒绝，均 exit 2 并说明。
+上表 ⑦ 已单列 `Type=Link`；`Type=Directory` 同因拒绝（仅消息中 `Type=` 后的值不同）。另有非 UTF-8 二进制 payload 拒绝，均 exit 2 并说明。
 
 ## 不做什么
 
