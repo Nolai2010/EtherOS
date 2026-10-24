@@ -371,8 +371,8 @@ jobs:
         # manifest v2 + 包装 payload,产物过 validate_plugins.py --file;断言 id 归一化
         # (Rich Probe App → rich-probe-app)、本地化键/未知键不进 manifest、manifest 与
         # result JSON 键名集合和声明模式产物逐字相同(零新输出键,约束 66)。
-        # 负例五条(互斥两给/直通缺 --out/直通撞名 Name=Douyin/无 Exec/非法 JSON):各自
-        # 非 0 退出 + stderr 明因 + 不产出输出目录(if/grep 断言,非恒真)。
+        # 负例七条(互斥两给/直通缺 --out/直通撞名 Name=Douyin/无 Exec/非法 JSON/空文件/Type=Link):各自
+        # 非 0 退出 + stderr 明因;零产物兜底(! test -e 输出目录)覆盖全部负例——任一条意外成功即产出目录、兜底红。
         # 回归:复跑声明模式(M10 smoke 同款命令)断言 status 与键集合同构;逐字节基线
         # 比对由验收者用 v0.12.0-m12 worktree 执行。夹具与产物全落 $RUNNER_TEMP(缺省
         # /tmp),仓库内零新增;本步骤不执行任何 payload(约束 47)。
