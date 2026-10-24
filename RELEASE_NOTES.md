@@ -74,6 +74,20 @@
   - `plugins/optional/douyin/`(protocols: ["ipa"])与 `plugins/compat/stub-runtime/` **仍为 stub**,不因本里程碑改口径。
   - 本里程碑同时硬化门禁:lint 的 pyflakes 目标扩至 `plugins/compat/*/*.py`(覆盖新 translator)、
     spec-consistency 里程碑白名单扩至 M10。
+- **v0.11.0-m11(装载闭环:load 原语首次真正执行)**:
+  - `tools/load_state.py`(新)消费 `tools/load_plugins.py` 的装载计划,**物化装载状态**:`registry`(顺序与计划
+    `load_order` 逐项相等)+ `routes`(协议激活表,仅已装载且声明该协议的 compat-bridge)+ `isolation`
+    (派生声明,计划级 `PER_PLUGIN`,**非强制**);成功 `status: "loaded"`。
+  - **诚实边界(重要)**:`loaded` = **宿主侧已登记 + 路由已激活**,**不表示已启动、更不表示已运行**;
+    内核侧装载与镜像内启动期装载(`/etc/os/config.toml` 覆盖 + 真实加载)仍属后续里程碑(spec 约束 29)。
+  - **装载产物被真实消费**:`tools/route_plugins.py --load-state <文件>` 从装载状态解析协议路由
+    (如 `ipa` → douyin 链);未启用插件的协议不进激活表;缺省路径(无 `--load-state`)行为逐字不变。
+  - 拒绝语义前移至装载期:plan/tree 漂移(条目 id 不存在 / payload 引用不符 / `load_order` 不一致 /
+    输入非 plan-only 计划)→ 非 0 退出明因;两个已装载插件声明同一协议 → 装载期 `EAMBIGUOUS` 拒绝。
+  - `tools/load_plugins.py`(M7 计划契约)**一字未改**;schema、`config/default.toml`、`[compat]` 开关
+    (`enabled = false`)均未动;CI 十 job 名不变(plugin-schema 纯末尾追加 load-state smoke 一步)。
+  - 已知边界:① 逆序 `load_order` 的计划会被装载器照单接受(与契约集合口径字面一致,真实生产者不可达,
+    如需更严须契约+实现同步改);② `route_plugins.py` 的 FAIL 信息走 stdout(M3 既有约定,新代码沿用)。
 
 ---
 
