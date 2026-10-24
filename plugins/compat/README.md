@@ -7,6 +7,7 @@ M3 交付 1–2 个兼容插件桩(demo 脚本型包装 + 简单包装示例);ex
 
 - `plugins/compat/` 是 **compat-bridge 插件的 translator 集合地**:凡 manifest `type:"compat-bridge"` 且声明 `translator` 字段者,该字段必须指向 `plugins/compat/` 前缀下的真实文件(spec §2.2;validator 断言前缀与文件存在性,M3 增量)。
 - 当前实体:`stub-runtime/translator.py`(翻译运行时雏形,STUB)——调用契约与 stub 边界详见 `stub-runtime/README.md`。
+- `desktop-entry/translator.py`(M10 真 translator,描述符级)——`.desktop` → manifest v2 端到端;M13 起支持 `--payload` 直通模式,调用契约见下。
 
 ## translator 调用契约
 
