@@ -7,7 +7,11 @@ manifest 已声明 protocols,零格式知识、不检视 payload 内容(契约 �
 零命中(ENOENT)/多命中(EAMBIGUOUS)→ 逐条 FAIL + exit 1;--run <name>:native 经 sh 调 payload
 (双保险不依赖可执行位),compat-bridge 仅调用户态 translator 出翻译计划、绝不执行 foreign
 payload(约束 16/17);两参数缺省=打印 enabled 全集路由摘要 exit 0。约束 12:config [plugins]
-enabled 是启用唯一事实源(builtin/dev 隐式启用,与 validator 同语义)。"""
+enabled 是启用唯一事实源(builtin/dev 隐式启用,与 validator 同语义)。
+--load-state <file>(M11 附加模式,约束 53):--protocol 查询改从装载状态(tools/load_state.py 产物,
+loader-contract.md §7)的激活路由表 routes 解析,命中输出与缺省模式同族键名(query/route/next/status,
+route 四键全部取自装载状态),未激活 → FAIL + exit 1(原因区别于缺省模式的树中无声明);装载状态只供
+route 查询,与 --run 并用或缺 --protocol 即拒;无 --load-state 时行为逐字不变(plugin-routing.md §5)。"""
 import argparse, json, subprocess, sys, tomllib
 from pathlib import Path
 
@@ -74,6 +78,40 @@ def cmd_protocol(plugins, protocol):
     return 0
 
 
+def cmd_load_state(state_path, protocol):
+    """--load-state 消费模式(M11,约束 53 / plugin-routing.md §5):协议查询改从装载状态(契约 §7)的
+    激活路由表 routes 解析,命中输出与缺省模式同族键名(query/route/next/status;route 四键全部取自
+    装载状态)。routes 由装载期物化(仅已装载 compat-bridge 且声明该 token 才激活,歧义已在装载期
+    EAMBIGUOUS 拒绝,约束 55),故本模式无多命中分支;未激活 → ENOENT,原因区别于缺省模式的"树中无
+    enabled 插件声明"。状态文件不可读/非 JSON 对象/status 非 "loaded"/缺 routes 表 → 拒绝(EINVAL 类)。"""
+    try:
+        state = json.loads(Path(state_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        fail(state_path, f"load state unreadable/invalid JSON: {exc} (route via load state: EINVAL)")
+        return 1
+    if not isinstance(state, dict):
+        fail(state_path, "load state is not a JSON object (route via load state: EINVAL)")
+        return 1
+    if state.get("status") != "loaded":
+        fail(state_path, f"load state status {state.get('status')!r} is not 'loaded' — not a materialized load state "
+                         f"(loader-contract.md §7) (route via load state: EINVAL)")
+        return 1
+    routes = state.get("routes")
+    if not isinstance(routes, dict):
+        fail(state_path, "load state has no 'routes' activation table (loader-contract.md §7) (route via load state: EINVAL)")
+        return 1
+    route = routes.get(protocol)
+    if route is None:
+        fail(f"protocol '{protocol}'", "is not activated by the load state — 未被装载状态激活:该协议无已装载插件声明,"
+                                       "或声明者未启用 (route: ENOENT via load state)")
+        return 1
+    json.dump({"query": {"protocol": protocol},
+               "route": {"plugin": route["plugin"], "manifest": route["manifest"],
+                         "translator": route["translator"], "payload": route["payload"]},
+               "next": ["translator", "load"], "status": "routed"}, sys.stdout, ensure_ascii=False, indent=2); print()
+    return 0
+
+
 def cmd_run(plugins, name):
     if name not in plugins:
         fail(name, "no such enabled plugin (Global Constraint 12)")
@@ -107,9 +145,19 @@ def main():
     ap.add_argument("--protocol", help="resolve route chain for a protocol token")
     ap.add_argument("--run", metavar="PLUGIN", help="run native payload via sh; compat-bridge gets translator plan only")
     ap.add_argument("--config", default=str(REPO / "config" / "default.toml"), help="config TOML path")
+    ap.add_argument("--load-state", metavar="FILE", help="resolve --protocol from a materialized load state (tools/load_state.py output; route queries only)")
     args = ap.parse_args()
-    plugins = collect(Path(args.config))
-    rc = 0 if plugins is None else cmd_protocol(plugins, args.protocol) if args.protocol else cmd_run(plugins, args.run) if args.run else cmd_summary(plugins)
+    rc = 0
+    if args.load_state:  # 约束 53: 附加消费模式,装载状态只供 route 查询
+        if args.run:
+            fail(args.load_state, "--load-state feeds route queries only, never --run; run semantics are unchanged (route: EINVAL)")
+        elif not args.protocol:
+            fail(args.load_state, "--load-state feeds route queries only; pass --protocol (run/summary semantics are unchanged) (route: EINVAL)")
+        else:
+            rc = cmd_load_state(args.load_state, args.protocol)
+    else:  # 缺省路径(M3 语义)逐字保留
+        plugins = collect(Path(args.config))
+        rc = 0 if plugins is None else cmd_protocol(plugins, args.protocol) if args.protocol else cmd_run(plugins, args.run) if args.run else cmd_summary(plugins)
     if FAILURES:
         print("\n".join(FAILURES))
         return 1
