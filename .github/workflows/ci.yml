@@ -489,7 +489,8 @@ jobs:
           # M10-6 再扩到 M10:M10 章节已入库(acceptance-standard.md:130),同理扩了是
           # 门禁增强、不会假红。方向只许更严。
           # M11-8 再扩到 M11(清偿审查 Minor 2):M11 章节已入库,同理;每里程碑扩一次。
-          for m in ("M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10", "M11"):
+          # M12-8 再扩到 M12:M12 章节已入库(acceptance-standard.md:172),同理。每里程碑扩一次。
+          for m in ("M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10", "M11", "M12"):
             if not any(line == f"## {m}" or line.startswith(f"## {m} ") for line in std_lines):
               fails.append(f"acceptance-standard.md missing section: {m}")
           # (c) spec anchor referenced by .etherkit/AGENTS.md
