@@ -37,8 +37,27 @@ typedef const void *etheros_payload_ref;
 /* Isolation domain handle. */
 typedef struct etheros_domain *etheros_domain_t;
 
-/* Permission bitmap of an isolation domain (capability boundary). */
+/* Permission bitmap of an isolation domain (capability boundary).
+ * The bit values are the closed set defined by
+ * kernel/interfaces/isolation-contract.md §2 (M12). */
 typedef unsigned int etheros_perms_t;
+
+/* ------------------------------------------------------------------ */
+/* Permission bitmap masks (isolation-contract.md §2: closed set).     */
+/* Every bit must be traceable to a manifest-declared capability       */
+/* token via the contract §3 mapping table; a token that is not        */
+/* listed there maps to no bit at all (default deny).  NET and GUI     */
+/* are reserved: no capability token maps to them yet.                 */
+/* ------------------------------------------------------------------ */
+
+#define ETHEROS_PERM_NONE     0x00 /* no permission */
+#define ETHEROS_PERM_FS_READ  0x01 /* read files */
+#define ETHEROS_PERM_FS_WRITE 0x02 /* write files */
+#define ETHEROS_PERM_PROC     0x04 /* create/execute a process */
+#define ETHEROS_PERM_NET      0x08 /* network access (reserved: no token mapping yet) */
+#define ETHEROS_PERM_SYSINFO  0x10 /* read system metrics */
+#define ETHEROS_PERM_COMPAT   0x20 /* call the userland translator */
+#define ETHEROS_PERM_GUI      0x40 /* graphical interface (reserved: no token mapping yet) */
 
 /* Route query: only consumes the manifest-declared "protocols" and
  * "capabilities" fields; no inference, no heuristics. */
@@ -81,7 +100,10 @@ int etheros_load(etheros_plugin_id plugin_id, etheros_payload_ref payload, ether
 /* Primitive 3: isolate                                                */
 /*   isolate(domain) -> perms                                          */
 /*   Establish an isolation domain and return its permission bitmap;   */
-/*   the boundary is capped by manifest-declared capabilities.         */
+/*   the boundary is capped by manifest-declared capabilities: no bit  */
+/*   may exceed what the manifest declared (perms ⊆ declared), and an  */
+/*   undeclared capability maps to no bit at all (default deny --      */
+/*   isolation-contract.md §2/§3).                                     */
 /*   Invalid domain => ETHEROS_EINVAL.                                 */
 /* ------------------------------------------------------------------ */
 etheros_perms_t etheros_isolate(etheros_domain_t domain);

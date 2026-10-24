@@ -54,6 +54,8 @@ EtherOS 内核只做三件事：**调度、协议/能力解释（路由）、加
 - **失败语义**：`domain` 句柄无效 → `EINVAL`。
 - **不变量**：内核只按声明的能力划界，**不感知**域内实体的内容格式。
 
+**M12 具化**（`kernel/interfaces/isolation-contract.md`）：权限词汇表为八位封闭集合（`ETHEROS_PERM_*`，`router_if.h` 掩码宏同步）；capability token → 权限位按隔离契约 §3 映射表逐 token 映射，**未列名 token = 未分类 = 零位（默认拒绝）**并记录于 `unclassified_capabilities`；宿主侧参考实现 `tools/isolation.py` 按装载状态为每个已装载条目建立隔离域（`level` 固定 `PER_PLUGIN`），执行边界按 manifest `type` 分两级（compat-bridge → reference-only，外部 payload 永不执行；native → process-confined，净化环境 + cwd 锁定）。今天真强制的只有两级执行边界；权限位图中 FS/NET 等位**仅声明**（enforced vs declared-only，见隔离契约 §5）。
+
 ## 3. 三不变量（汇总，全契约硬约束）
 
 1. 内核**不解析任何格式内容**；

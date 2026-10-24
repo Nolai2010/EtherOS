@@ -47,7 +47,12 @@ typedef enum etheros_category {
 } etheros_category;
 
 /* Planned isolation level for a loaded plugin (isolation is planned
- * here; the real isolation domain belongs to the routing contract). */
+ * here; the real isolation domain belongs to the routing contract).
+ * PER_PLUGIN = one isolation domain per loaded plugin.  Which of the
+ * two execution boundaries (isolation-contract.md §4) applies is
+ * decided by the manifest-declared "type" token: compat-bridge =>
+ * reference-only (foreign payload never executed); native =>
+ * process-confined (sanitized env + locked cwd). */
 typedef enum etheros_isolation_level {
     ETHEROS_ISOLATION_NONE = 0,
     ETHEROS_ISOLATION_PER_PLUGIN
