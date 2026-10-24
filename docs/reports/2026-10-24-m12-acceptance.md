@@ -448,7 +448,7 @@ $ git ls-remote origin refs/heads/feat/m12-isolation
 04b7a04d81ef0cfb51e2b2ae76e512c04dac8282  refs/heads/feat/m12-isolation   ← 初版推送后与本地逐字相等
 ```
 
-说明：初版报告提交 `04b7a04` 推送后 CI 已全绿（见下）；因本节"提交/推送/CI 复核"数据需回填，报告经一次 **amend 定稿**（提交信息与签名不变）并以 `--force-with-lease` 重推（本分支为 M12 任务分支，仅验收者写入，无他人基于其工作）。最终分支 tip 即本报告定稿提交（subject 同上；`git rev-parse HEAD` 与 `git ls-remote origin refs/heads/feat/m12-isolation` 逐字相等），其推送后 CI 复核数据（run id / headSha / 十 job 终态）随验收交付消息一并报送，终态为 success。
+说明：初版报告提交 `04b7a04` 推送后 CI 已全绿（见下）；因本节"提交/推送/CI 复核"数据需回填，报告曾以 **amend + `--force-with-lease` 重推**定稿（本分支为 M12 任务分支，仅验收者写入）。该重推触发一次**历史重写伪红**：`dco` job 以 `github.event.before`（= 重写前远端头 `04b7a04`）构造 `git log 04b7a04..9212a10` 区间，而 `04b7a04` 经 amend 已不在新历史中 → `fatal: Invalid revision range` → exit 128（run 40101831873 十 job 中唯一红项）。**伪红实证**：定稿提交 `git log -1 --format=%B` 实含 `Signed-off-by:` trailer（%(trailers) 提取通过），非 DCO 违规；其余 9 job 全 success。修正方式：**不再重写历史**，以本追加提交（含本纪实段）为最终分支 tip，使 `github.event.before`（= 定稿提交）区间恢复有效，DCO 预期转绿；最终 run 数据（run id / headSha / 十 job 终态）随验收交付消息一并报送。
 
 ### 推送后 CI 复核（先核对 headSha 再取 run id,防陈旧 run）
 
@@ -467,6 +467,19 @@ job count : 10 —— 十 job 全 success（docs-only 提交）
   dco / build ToaruOS base / vm smoke / vm smoke aarch64
 ```
 
-docs-only 提交不触发任何门禁变化：plugin-schema job 的 M12 isolation smoke step 在新 commit 上再次全绿。轮询期间 GitHub API 一次瞬时 502（`gh run watch` 拉取瞬断）按重试纪律重取后终态 success（502 为代理瞬断，非 CI 失败；推送本身一次成功无重试）。**最终 tip（amend 定稿提交）的同口径复核由验收者在推送后执行并随交付消息报送。**
+docs-only 提交不触发任何门禁变化：plugin-schema job 的 M12 isolation smoke step 在新 commit 上再次全绿。轮询期间 GitHub API 一次瞬时 502（`gh run watch` 拉取瞬断）按重试纪律重取后终态 success（502 为代理瞬断，非 CI 失败；推送本身一次成功无重试）。**最终 tip（追加纪实提交）的同口径复核由验收者在推送后执行并随交付消息报送。**
+
+### 定稿提交（amend 重推）run 40101831873 复核记录
+
+```
+$ gh run view 40101831873 --repo Nolai2010/EtherOS --json headSha,conclusion,status,jobs
+headSha   : 9212a10bc4099887093487c40f311681fccfccda   ← 等于定稿提交,非陈旧 run
+conclusion: failure | status: completed | event: push
+job count : 10 —— 9 success + 1 failure
+  失败 job: dco (Signed-off-by on every commit, merges exempt)
+  日志实证: fatal: Invalid revision range 04b7a04d81ef0cfb51e2b2ae76e512c04dac8282..9212a10bc4099887093487c40f311681fccfccda → exit 128
+```
+
+**裁定：历史重写伪红，非 DCO 违规**（定稿提交实带 Signed-off-by，trailer 提取实证；其余 9 job 含 plugin-schema M12 smoke 全 success）。处理：以追加提交（不再重写）修复区间有效性，见上"说明"段；最终 tip CI 复核随交付消息报送。
 
 **STATUS: PASS**
