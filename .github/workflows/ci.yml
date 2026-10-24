@@ -232,6 +232,136 @@ jobs:
           echo "$out" | grep -q "EAMBIGUOUS" || { echo "::error::expected EAMBIGUOUS: $out"; exit 1; }
           echo "LOAD-STATE SMOKE OK (M11 real load + route consumption)"
 
+      - name: Isolation smoke (M12 isolate primitive)
+        # M12-03/04/05:隔离原语首次端到端 smoke —— 装载状态(load_state.py,M11 产物) →
+        # 隔离配置(isolation.py,M12 宿主侧参考实现) → 正例 A 断言(status "profile"、
+        # domains 序 == registry 序、契约 §3 逐域映射表、§4 两级边界分级、enforced vs
+        # declared_only 全位名口径);正例 B 边界证据:夹具 native 插件(payload 打印 env
+        # 全量与 pwd)+ config enabled,route_plugins.py --run 在毒化代理/ETHEROS_ 变量
+        # 环境下执行,断言输出不含 http_proxy/https_proxy/HTTPS_PROXY/all_proxy/ETHEROS_
+        # 任一且 pwd 行 == payload 所在目录(M12-03 process-confined 边界,约束 59);
+        # 负例:装载状态改坏(status 非 loaded / registry 条目删 capabilities)→
+        # isolation.py 非 0 退出且不产出配置;回归:--run hello-plugin 确定性问候不变、
+        # --run douyin 仍出翻译计划(compat-bridge 路径零变化);对抗探针:清空 profile 某域
+        # perms → 正例 A 断言必须红(证明断言非恒真)。route_plugins.py 无 --plugins-root
+        # (M12-4 只许动 cmd_run 执行处),夹具经 tools/plugins 副本落 $RUNNER_TEMP,仓库内
+        # 零新增;本步骤不执行任何 compat payload。
+        run: |
+          RT="${RUNNER_TEMP:-/tmp}"
+          python3 tools/load_plugins.py > "$RT/m12-plan.json"
+          python3 tools/load_state.py --plan "$RT/m12-plan.json" --out "$RT/m12-state.json"
+          python3 tools/isolation.py --load-state "$RT/m12-state.json" --out "$RT/m12-profile.json"
+          cat > "$RT/m12-assert-profile.py" <<'PY'
+          import json, sys
+          plan = json.load(open(sys.argv[1], encoding="utf-8"))
+          state = json.load(open(sys.argv[2], encoding="utf-8"))
+          profile = json.load(open(sys.argv[3], encoding="utf-8"))
+          assert profile["status"] == "profile", profile["status"]
+          assert profile["contract"] == "kernel/interfaces/isolation-contract.md", profile["contract"]
+          assert profile["stage"] == "M12-isolation", profile["stage"]
+          assert [d["id"] for d in profile["domains"]] == [e["id"] for e in state["registry"]], "domains order must equal registry order"
+          assert [e["id"] for e in state["registry"]] == plan["load_order"], "registry order must equal plan load_order"
+          reg = {e["id"]: e for e in state["registry"]}
+          # 契约 §3 映射表(smoke 自带独立 Oracle,与工具内置表互为印证;未列名 token = 未分类 = 零位)
+          TOKEN_TO_PERM = {"fs.browse": "ETHEROS_PERM_FS_READ", "sys.settings": "ETHEROS_PERM_FS_WRITE",
+                           "sys.shell": "ETHEROS_PERM_PROC", "sys.perfmon": "ETHEROS_PERM_SYSINFO",
+                           "compat.ipa.bridge": "ETHEROS_PERM_COMPAT"}
+          EXPECT = {"files": ["ETHEROS_PERM_FS_READ"], "settings": ["ETHEROS_PERM_FS_WRITE"],
+                    "shell": ["ETHEROS_PERM_PROC"], "mon": ["ETHEROS_PERM_SYSINFO"],
+                    "douyin": ["ETHEROS_PERM_COMPAT"], "hello-plugin": []}
+          by_id = {d["id"]: d for d in profile["domains"]}
+          assert "demo-desktop-app" not in by_id, "demo-desktop-app is not loaded and must not have a domain"
+          for pid, perms in EXPECT.items():
+              d = by_id[pid]
+              assert d["perms"] == perms, f"{pid}: perms {d['perms']} != {perms} (contract §3)"
+              assert d["level"] == "PER_PLUGIN", d["level"]
+              want_exec = "reference-only" if reg[pid]["type"] == "compat-bridge" else "process-confined"
+              assert d["execution"] == want_exec, f"{pid}: execution {d['execution']} != {want_exec} (contract §4)"
+              if want_exec == "reference-only":
+                  assert d["enforced"] == ["no-execution-of-foreign-payload"], d["enforced"]
+              else:
+                  assert d["enforced"] == ["env-sanitized", "cwd-locked"], d["enforced"]
+          assert "demo.hello" in by_id["hello-plugin"]["unclassified_capabilities"], by_id["hello-plugin"]["unclassified_capabilities"]
+          for d in profile["domains"]:
+              caps = reg[d["id"]]["capabilities"]
+              assert set(d["perms"]) == {TOKEN_TO_PERM[t] for t in caps if t in TOKEN_TO_PERM}, f"{d['id']}: perms must be derived from declared tokens only (constraint 57)"
+              assert d["unclassified_capabilities"] == [t for t in caps if t not in TOKEN_TO_PERM], f"{d['id']}: unclassified tokens must be recorded verbatim (constraint 56)"
+              assert d["declared_only"] == d["perms"], f"{d['id']}: declared_only {d['declared_only']} != perms {d['perms']} (full-bit-name reading, constraint 58)"
+          print("ISOLATION PROFILE OK", [d["id"] for d in profile["domains"]])
+          PY
+          python3 "$RT/m12-assert-profile.py" "$RT/m12-plan.json" "$RT/m12-state.json" "$RT/m12-profile.json"
+          mkdir -p "$RT/m12-run"
+          cp -r tools "$RT/m12-run/tools"
+          cp -r plugins "$RT/m12-run/plugins"
+          mkdir -p "$RT/m12-run/plugins/optional/boundary-probe/payload"
+          cat > "$RT/m12-run/plugins/optional/boundary-probe/plugin.json" <<'JSON'
+          {"schema_version": "2", "name": "boundary-probe", "version": "0.1.0", "type": "native", "uninstallable": true,
+           "payload": "payload/probe.sh", "container": {"desktop": "windowed"},
+           "capabilities": ["demo.boundary-probe"], "resources": ["demo://boundary-probe"]}
+          JSON
+          cat > "$RT/m12-run/plugins/optional/boundary-probe/payload/probe.sh" <<'SH'
+          #!/bin/sh
+          # M12 边界证据夹具 payload:打印 env 全量与 pwd,供 process-confined 边界断言(隔离契约 §4.2)
+          echo "--- env begin ---"
+          env
+          echo "--- env end ---"
+          echo "CWD=$(pwd)"
+          SH
+          printf '[plugins]\nenabled = ["boundary-probe"]\n' > "$RT/m12-probe.toml"
+          if out=$(http_proxy=http://proxy.invalid:8080 https_proxy=http://proxy.invalid:8443 HTTPS_PROXY=http://proxy.invalid:8443 all_proxy=socks://proxy.invalid:1080 ETHEROS_PROBE_LEAK=leaked-token \
+              python3 "$RT/m12-run/tools/route_plugins.py" --run boundary-probe --config "$RT/m12-probe.toml" 2>&1); then
+            echo "$out"
+          else
+            echo "::error::boundary probe payload must exit zero under the process-confined boundary: $out"
+            exit 1
+          fi
+          if echo "$out" | grep -qE 'http_proxy|https_proxy|HTTPS_PROXY|all_proxy|ETHEROS_'; then
+            echo "::error::sanitized env leaked proxy/ETHEROS_ variables into the payload: $out"
+            exit 1
+          fi
+          cwd_line=$(echo "$out" | sed -n 's/^CWD=//p')
+          [ "$cwd_line" = "$RT/m12-run/plugins/optional/boundary-probe/payload" ] || { echo "::error::cwd must be locked to the payload dir: got '$cwd_line'"; exit 1; }
+          echo "BOUNDARY EVIDENCE OK (env sanitized, cwd locked)"
+          python3 - "$RT/m12-state.json" "$RT/m12-state-bad-status.json" <<'PY'
+          import json, sys
+          s = json.load(open(sys.argv[1], encoding="utf-8"))
+          s["status"] = "plan-only"
+          json.dump(s, open(sys.argv[2], "w", encoding="utf-8"))
+          PY
+          if out=$(python3 tools/isolation.py --load-state "$RT/m12-state-bad-status.json" --out "$RT/m12-neg-out.json" 2>&1); then
+            echo "::error::load state with status != loaded must be rejected: $out"
+            exit 1
+          fi
+          echo "$out" | grep -q "isolate: EINVAL" || { echo "::error::expected an EINVAL reason: $out"; exit 1; }
+          ! test -e "$RT/m12-neg-out.json" || { echo "::error::rejected state must not produce a profile"; exit 1; }
+          python3 - "$RT/m12-state.json" "$RT/m12-state-bad-caps.json" <<'PY'
+          import json, sys
+          s = json.load(open(sys.argv[1], encoding="utf-8"))
+          del s["registry"][0]["capabilities"]
+          json.dump(s, open(sys.argv[2], "w", encoding="utf-8"))
+          PY
+          if out=$(python3 tools/isolation.py --load-state "$RT/m12-state-bad-caps.json" 2>&1); then
+            echo "::error::registry entry without capabilities must be rejected: $out"
+            exit 1
+          fi
+          echo "$out" | grep -q "capabilities" || { echo "::error::expected a capabilities reason: $out"; exit 1; }
+          python3 tools/route_plugins.py --run hello-plugin | grep -q "EtherOS demo: hello from plugin hello-plugin" || { echo "::error::hello regression broke (M12-06)"; exit 1; }
+          python3 tools/route_plugins.py --run douyin | grep -q '"status": "stub-plan-only"' || { echo "::error::douyin translation plan broke (compat-bridge path must be unchanged)"; exit 1; }
+          python3 - "$RT/m12-profile.json" "$RT/m12-profile-tampered.json" <<'PY'
+          import json, sys
+          p = json.load(open(sys.argv[1], encoding="utf-8"))
+          dom = next((d for d in p["domains"] if d["perms"]), None)
+          assert dom is not None, "tamper probe needs a domain with perms"
+          dom["perms"] = []
+          dom["perms_mask"] = 0
+          json.dump(p, open(sys.argv[2], "w", encoding="utf-8"))
+          PY
+          if python3 "$RT/m12-assert-profile.py" "$RT/m12-plan.json" "$RT/m12-state.json" "$RT/m12-profile-tampered.json"; then
+            echo "::error::adversarial probe: tampered profile must break the positive assertions"
+            exit 1
+          fi
+          echo "ISOLATION SMOKE OK (M12 isolate primitive + process-confined boundary evidence)"
+
   license:
     name: license (reuse lint, submodules excluded per spec 5 / risk 2)
     runs-on: ubuntu-latest
@@ -359,7 +489,8 @@ jobs:
           # M10-6 再扩到 M10:M10 章节已入库(acceptance-standard.md:130),同理扩了是
           # 门禁增强、不会假红。方向只许更严。
           # M11-8 再扩到 M11(清偿审查 Minor 2):M11 章节已入库,同理;每里程碑扩一次。
-          for m in ("M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10", "M11"):
+          # M12-8 再扩到 M12:M12 章节已入库(acceptance-standard.md:172),同理。每里程碑扩一次。
+          for m in ("M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10", "M11", "M12"):
             if not any(line == f"## {m}" or line.startswith(f"## {m} ") for line in std_lines):
               fails.append(f"acceptance-standard.md missing section: {m}")
           # (c) spec anchor referenced by .etherkit/AGENTS.md

@@ -9,7 +9,7 @@
    `git diff --submodule=log base/toaruos` 为空(本地漂移);未初始化则打印 SKIP,不作失败。
 2. kernel/ 白名单: 工作树扫描(含未跟踪文件,严于 git ls-files,可被 touch 注入反例命中);
    允许集合 = kernel/README.md + kernel/interfaces/*(内核零实现代码的结构保证)。
-3. 格式字面量零命中: kernel/ 递归扫 `\\.(ipa|exe|apk)\\b` 与 `douyin`(M3 先例口径)。
+3. 格式字面量零命中: kernel/ 递归扫**扩展名位置**的格式字面量(`\\.(ipa|exe|apk)` 须处于 token 末段;点分 capability token 的中段如 `compat.ipa.bridge` 不属格式字面量,M12 守卫精确化)与 `douyin` 纯串(M3 先例口径)。
 4. manifest↔契约对齐: [kernel].capabilities == {schedule, protocol-route, load-isolate}
    且 forbidden_in_kernel 非空(M0-07 不回退的机器可查形态)。
 CLI: --manifest <path> 覆盖 CORE_MANIFEST 路径(负测用)。任何失败逐条 `FAIL: <项> <原因>` + exit 1;全过 `kernel boundary: OK` + exit 0(风格对齐 tools/validate_plugins.py)。"""
@@ -25,7 +25,9 @@ VENDORED = "base/toaruos"
 KERNEL = REPO / "kernel"
 ALLOWED_KERNEL = ("kernel/README.md",)  # kernel/interfaces/* 整目录放行(计划 Task M4-4 职责 2)
 REQUIRED_CAPS = {"schedule", "protocol-route", "load-isolate"}  # kernel/interfaces 三原语契约
-FORMAT_RE, FORMAT_TOKEN = re.compile(r"\.(ipa|exe|apk)\b"), "douyin"  # 约束 15 + M3 先例口径
+# 约束 15 + M3 先例口径;格式名必须处在其 token 的末段(扩展名位置)才算格式字面量——
+# 点分 capability token 的中段(如 compat.ipa.bridge)不是扩展名(M12 精确化:去误伤类、保真阳性)。
+FORMAT_RE, FORMAT_TOKEN = re.compile(r"\.(ipa|exe|apk)(?![A-Za-z0-9_.-])"), "douyin"
 FAILURES: list[str] = []
 
 

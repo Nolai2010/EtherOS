@@ -88,6 +88,22 @@
     (`enabled = false`)均未动;CI 十 job 名不变(plugin-schema 纯末尾追加 load-state smoke 一步)。
   - 已知边界:① 逆序 `load_order` 的计划会被装载器照单接受(与契约集合口径字面一致,真实生产者不可达,
     如需更严须契约+实现同步改);② `route_plugins.py` 的 FAIL 信息走 stdout(M3 既有约定,新代码沿用)。
+- **v0.12.0-m12(隔离原语具化:isolate 首次真正执行)**:
+  - 新增 `kernel/interfaces/isolation-contract.md`(隔离契约)与 `tools/isolation.py`(隔离配置生成器):
+    **封闭权限词汇表**(8 位,NET/GUI 预留无映射)+ **逐 token 映射表**(`fs.browse`→FS_READ 等五条;
+    **未列名 token = 未分类 = 零位,默认拒绝**);对每个已装载条目推导 perms(上限封顶于已声明 capabilities)
+    与执行边界分级,输出 `status: "profile"`。
+  - **两级执行边界首次真正施加**(宿主侧唯一执行点 `route_plugins.py --run`):
+    **compat-bridge 外部 payload 永不执行**(引用级,`reference-only`);**native payload 环境净化**
+    (仅透传 `PATH`/`HOME`/`LANG`)+ **工作目录锁定** payload 所在目录(进程级,`process-confined`)。
+    ⚠️ 后者是**显式行为变化**:native payload 的运行环境自本版本起受前述限制(既有 demo payload 输出不变,有回归实证)。
+  - **诚实边界(重要)**:今天**没有任何权限位被门禁化**——`declared_only` 记录该域全部权限位,
+    `enforced` 只记录执行边界控制项;FS/NET 级强制与**生产级安全模型属 spec §6 风险 8 / Phase 2 后期**。
+  - 内核边界守卫精确化:`tools/check_kernel_boundary.py` 的格式字面量正则由"点+格式名+词边界"
+    精确化为"格式名须处其 token 末段(扩展名位置)"——点分 capability token 中段(如 `compat.ipa.bridge`)
+    不再是误伤,真扩展名(`payload/douyin.ipa` 等)仍一律拒绝(13 探针实证,方向为更精确而非放宽)。
+  - `tools/load_plugins.py` / `tools/load_state.py` / schema / config / release.yml **零改动**;
+    CI 十 job 名不变(plugin-schema 纯末尾追加 isolation smoke 一步)。
 
 ---
 

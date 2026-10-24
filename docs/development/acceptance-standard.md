@@ -168,3 +168,14 @@ M1(底座基线)/M2(schema+配置)/M3(兼容桩)/M4(内建归位)/M5(CI 六项)/
 | M11-04 | 诚实边界：load-state 输出与契约/README 明写"loaded = 宿主侧已登记 + 路由已激活，非已启动/非已运行；内核侧装载与镜像内启动期装载属后续"；load_plugins.py 默认输出仍为 plan-only 逐字不变 | 文件实读 + 默认输出回归比对 |
 | M11-05 | 负例：plan/tree 漂移（plan 条目 id 不在树中 / payload 引用与 manifest 不符 / load_order 与条目集不一致 / status 非 plan-only）→ 各自非 0 退出并给出原因；两个已装载插件声明同一协议 token → 装载期 EAMBIGUOUS 拒绝 | 逐条实跑 |
 | M11-06 | 旧门禁零回退：十 job 名与行为不变（既有 step 零改动、只追加），load_plugins.py 与 route_plugins.py 缺省输出同 v0.10.0-m10 逐项相等，release.yml 零 diff | CI 十 job 全绿 + 输出回归比对 |
+
+## M12 · 隔离原语具化（隔离域 + 权限位图 + 宿主侧执行边界）
+
+| 编号 | 标准 | 验证方式 |
+|---|---|---|
+| M12-01 | 隔离契约在位：isolation-contract.md 定义隔离域语义、权限词汇表（封闭集合 + 逐 token 映射表 + 默认拒绝）与两级执行边界（reference-only / process-confined）及 enforced vs declared-only 清单；router_if.h 对应掩码宏与原语注释；plugin-routing.md §2.3 与 loader_if.h 同步 | 文件实读 + 词汇表/映射表比对 |
+| M12-02 | 隔离配置生成器存在：tools/isolation.py 消费 tools/load_state.py 的装载状态（不重读 config），对每个已装载条目推导 perms（perms ⊆ declared；未分类 token 零位并记录）与执行边界分级，输出 status "profile" 的隔离配置 | CLI 实跑 + 键名/推导断言 |
+| M12-03 | native 执行边界实化（显式行为变化）：route_plugins.py --run 对 native payload 以净化环境（最小变量集）+ 锁定 cwd 执行；夹具实证无代理/ETHEROS_* 变量泄漏、cwd 为 payload 目录；compat-bridge 路径零变化（仍只调 translator） | 夹具实跑 + 环境断言 |
+| M12-04 | 诚实边界：隔离配置与契约明写"今天强制的边界 = compat-bridge 永不执行 + native env/cwd 限制；FS/NET 级仅声明，生产级安全模型属 spec Phase 2 后期"；status 不用"已隔离"式表述 | 文件实读 + grep |
+| M12-05 | 负例：未分类 capability token → 零位且记录（不静默丢弃）；装载状态条目缺 capabilities/type 字段 → 拒绝；状态 JSON 非法或 status 非 loaded → 拒绝 | 逐条实跑 |
+| M12-06 | 旧门禁零回退：route 查询/plan/load 零改动（load_plugins.py、load_state.py、ci.yml 既有 step 零改动），M3 smoke 两条 --run 断言输出不变（hello 确定性问候、douyin 翻译计划），schema/config/release.yml 零 diff | CI 十 job 全绿 + 输出回归 |

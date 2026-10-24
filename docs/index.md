@@ -41,3 +41,6 @@
 | `docs/reports/2026-10-24-m10-acceptance.md` | M10 独立验收报告（6/6 PASS；诚实边界红线六层取证、端到端闭环复现、负例独立复跑、M10-06 零回退口径记档） |
 | `../tools/load_state.py` | 宿主侧装载器（M11 真装载）：消费 `tools/load_plugins.py` 的计划（启用集权威是 plan，不重读 config）物化装载状态——registry + routes 激活表 + isolation 派生声明；输出 `status: "loaded"`（宿主侧已登记+路由已激活，非已启动/非已运行）；plan/tree 漂移与协议歧义装载期拒绝 |
 | `docs/reports/2026-10-24-m11-acceptance.md` | M11 独立验收报告（6/6 PASS；load 原语首次真正执行、装载产物被 route --load-state 真实消费、缺省路径六调用逐字节回归、CI smoke 非空转五探针、M11-06 零回退口径记档） |
+| `../kernel/interfaces/isolation-contract.md` | 隔离契约（M12 isolate 原语）：权限词汇表（8 位封闭集合，NET/GUI 预留）、capability token → 权限位映射表（未列名=未分类=零位，默认拒绝）、两级执行边界（reference-only 永不执行外部 payload / process-confined 净化环境+锁定 cwd）、enforced vs declared-only 清单 |
+| `../tools/isolation.py` | 隔离配置生成器（M12）：消费装载状态（不重读 config）按词汇表推导每域 perms（perms ⊆ declared）与执行边界分级，输出 `status: "profile"`；今天无 per-bit 强制点（位图仅声明，门禁化属后续安全模型） |
+| `docs/reports/2026-10-24-m12-acceptance.md` | M12 独立验收报告（6/6 PASS；契约四文件逐字比对、99/99 推导断言、边界证据对抗实证（旧版泄漏 6 变量 vs HEAD 零泄漏）、守卫精确化独立评估、负例 10/10、M12-06 零回退口径记档） |
