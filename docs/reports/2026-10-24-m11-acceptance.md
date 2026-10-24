@@ -433,4 +433,40 @@ loader_if.h 的 3 行变化（`ETHEROS_OK`/`ENOENT`/`EINVAL` 三宏）**仅限�
 
 **总判定：M11-01 ~ M11-06 六条全部 PASS（M11-06 按 M9-05/M10-06 先例口径记档"plugin-schema 追加一个 step、方向纯增强"），阻塞缺陷 0；3 条 Minor 均为记档/建议级（§8-7 集合口径与契约字面一致且不可达、spec-consistency 白名单未扩 M11 归 M11-8、FAIL 输出流约定），3 条口径差异已如实记档 —— 其中"plugin-schema 纯增强记档"与"loaded 诚实边界四处同口径 + CI 三标记实证"是最需要终审知悉的两点。**
 
+---
+
+## 提交与 CI 复核（报告入库后）
+
+### 提交与推送
+
+```
+$ git add docs/reports/2026-10-24-m11-acceptance.md   （提交前 git status --porcelain 仅含该文件）
+$ git commit -s -m "docs: M11 acceptance report (M11-01..06, independent)"
+[feat/m11-load-closure 2e247ca] docs: M11 acceptance report (M11-01..06, independent)
+ 1 file changed, 436 insertions(+)   Signed-off-by: Nolai <120611751+Nolai2010@users.noreply.github.com>
+
+$ git push origin feat/m11-load-closure
+   2a10245..2e247ca  feat/m11-load-closure -> feat/m11-load-closure   （一次成功,无 502 重试）
+
+$ git ls-remote origin refs/heads/feat/m11-load-closure
+2e247ca36684995352f10385bfeb815f28210489  refs/heads/feat/m11-load-closure   ← 与本地新提交逐字相等
+```
+
+### 推送后 CI 复核（先核对 headSha 再取 run id,防陈旧 run）
+
+```
+$ gh run list --branch feat/m11-load-closure --limit 3 --json databaseId,headSha,conclusion,status,event
+新 run: 40091498889, headSha 2e247ca36684995352f10385bfeb815f28210489 ← 等于本报告提交,非陈旧 run; event: push
+
+$ gh run view 40091498889 --repo Nolai2010/EtherOS --json headSha,conclusion,status,event,jobs
+headSha   : 2e247ca36684995352f10385bfeb815f28210489
+conclusion: success | status: completed | event: push
+job count : 10 —— 十 job 全 success（docs-only 提交）
+  dco / license / etherkit single-source consistency / spec & docs reference consistency /
+  build ToaruOS base / lint / plugin manifest schema & config consistency (M2) /
+  build ToaruOS aarch64 base / vm smoke / vm smoke aarch64
+```
+
+新 headSha（`2e247ca`）上 **十 job 全 success** ✅（docs-only：本报告入库不触发任何门禁变化，plugin-schema job 的 M11 load-state smoke step 在新 commit 上再次全绿）。轮询期间 GitHub API 一次瞬时 502 按重试纪律重取后终态 success（502 为代理瞬断，非 CI 失败）。
+
 **STATUS: PASS**
