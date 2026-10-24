@@ -37,3 +37,5 @@
 | `docs/reports/2026-10-11-m7-acceptance.md` | M7 独立验收报告（7/7 PASS；含 db62985 未放宽门禁独立确认、4 条负例实证、口径差异 1 条记档） |
 | `docs/reports/2026-10-17-m8-acceptance.md` | M8 独立验收报告（6/6 PASS；aarch64 构建与启动证据，含 M1 行 aarch64 口径差异「转正」声明与 riscv64 仍仅评估记档） |
 | `docs/reports/2026-10-18-m9-acceptance.md` | M9 独立验收报告（6/6 PASS；schema v2 破坏性升级、dependencies 语义断言、拓扑装载与依赖环拒绝的实证） |
+| `../plugins/compat/desktop-entry/README.md` | compat 桌面条目翻译器（M10 真 translator）：.desktop 描述符 → manifest v2 + 包装 payload 的字段映射表、name 归一化五步规则、诚实边界（描述符级、非二进制指令翻译）、负例口径 |
+| `docs/reports/2026-10-24-m10-acceptance.md` | M10 独立验收报告（6/6 PASS；诚实边界红线六层取证、端到端闭环复现、负例独立复跑、M10-06 零回退口径记档） |

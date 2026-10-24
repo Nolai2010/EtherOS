@@ -61,6 +61,19 @@
   - **装载顺序改为依赖拓扑序**:`load_order` 由依赖拓扑决定(被依赖者在前);无依赖时退化为既有目录序,
     因此**现有零依赖插件的装载顺序与升级前完全一致**(已用 v0.8.0-m8 基线逐项比对实证)。
   - 装载器仍属 **plan-only**(只生成装载计划,未真正装载/启动任何插件),启动期装载属后续里程碑。
+- **v0.10.0-m10(compat 层首个真翻译,描述符级)**:
+  - `plugins/compat/desktop-entry/translator.py` 首次**真正翻译**:把 freedesktop `.desktop` 桌面条目(纯文本描述符)
+    翻译为 EtherOS 插件 manifest v2 + 包装 payload,成功时输出 `status: "translated"`(区别于 M3 stub 的 `"stub-plan-only"`)。
+  - **诚实边界(重要)**:这是**描述符级翻译,不是二进制指令翻译** —— 不解析 exe/ipa/apk 二进制容器、
+    不做指令集解码/系统调用转换/沙箱内执行;`Exec=` 只作字符串原样转发进包装 payload。
+    `status: "translated"` 只表示产物已真实写出,**不表示已装载、更不表示已运行**;不得据此宣称"支持运行 .desktop 应用"。
+  - 端到端闭环:外部 payload → translator → manifest v2(过 `validate_plugins.py`)→ `load_plugins.py` 纳入装载计划
+    (示例 `plugins/optional/demo-desktop-app/`;未启用时正确落 `skipped`,既有零依赖插件的装载顺序逐项不变)。
+  - 已知边界:`--manifest` 源声明 JSON 为必需参数(沿用 M3 契约),裸 `.desktop` 直通翻译需后续接口扩展;
+    `Name` 归一化按 schema `^[a-z]` 首字符规则截断前导数字(如 `3D Viewer` → `d-viewer`,已在 translator README 记档)。
+  - `plugins/optional/douyin/`(protocols: ["ipa"])与 `plugins/compat/stub-runtime/` **仍为 stub**,不因本里程碑改口径。
+  - 本里程碑同时硬化门禁:lint 的 pyflakes 目标扩至 `plugins/compat/*/*.py`(覆盖新 translator)、
+    spec-consistency 里程碑白名单扩至 M10。
 
 ---
 

@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Demo Desktop App
+Exec=/bin/echo M10 demo
+Comment=M10 端到端示例:本文件是外部格式占位,Exec 只作字符串转发,不执行
+Categories=Utility;

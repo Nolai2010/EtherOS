@@ -4,7 +4,7 @@
 > 技术副口号：一纸插件声明，兼容百种格式，贯通各类终端 (One plugin manifest, every app format, every device.)
 > Tagline: **Plugin-Native. Kernel-Minimal.**
 
-插件原生、内核极简的开源大一统操作系统（M0–M6 Phase 1 收官 + M7/M8/M9 Phase 2：CI 十 job 全绿、发布通道打通、x86-64/aarch64 均可构建、schema v2 支持插件依赖与拓扑装载）。
+插件原生、内核极简的开源大一统操作系统（M0–M6 Phase 1 收官 + M7–M10 Phase 2：CI 十 job 全绿、发布通道打通、x86-64/aarch64 均可构建、schema v2 支持插件依赖与拓扑装载、compat 层首个真翻译：.desktop 描述符级端到端）。
 
 - 内核只做 **调度 + 协议/能力解释(路由) + 加载/隔离**，零格式知识。
 - 内核之外没有非插件实体：驱动/服务/shell/文件管理器/设置/性能监控 = `plugins/builtin/` 内建不可卸载插件；计算器、抖音兼容包等 = `plugins/optional/` 可选插件。
@@ -50,3 +50,4 @@
 - [x] M7：Phase 2 开门（spec-consistency 行首锚定 + lint 空集断言 + CONTRIBUTING + 装载契约与用户态装载计划生成器 + aarch64/OVA 可行性调研）+ 独立验收通过（docs/reports/2026-10-11-m7-acceptance.md，7/7）
 - [x] M8：aarch64 第二架构（build-aarch64 + vm-smoke-aarch64 两 job，spec §4 M1 行 aarch64 半句由口径差异转为已达成）+ 独立验收通过（docs/reports/2026-10-17-m8-acceptance.md，6/6）
 - [x] M9：schema v2（新增可选 dependencies 字段 + 全树 manifest 迁移 + 装载器拓扑排序与依赖环检测）+ 独立验收通过（docs/reports/2026-10-18-m9-acceptance.md，6/6；**破坏性升级：v1 manifest 不再被接受**）
+- [x] M10：translator 真实现（compat 层首个真翻译：freedesktop .desktop 描述符 → 插件 manifest v2 端到端闭环；**描述符级翻译，非二进制指令翻译**，douyin/stub 口径未变）+ 独立验收通过（docs/reports/2026-10-24-m10-acceptance.md，6/6）

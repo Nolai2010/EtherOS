@@ -112,6 +112,47 @@ jobs:
           print('TOPO OK', o)"
           ! python3 tools/load_plugins.py --plugins-root /tmp/m9-cycle --config /tmp/m9-empty.toml
 
+      - name: Desktop-entry translation smoke (M10 real translator)
+        # M10-01/02/03/05:compat 层首次真翻译 —— 外部 .desktop 描述符 → translator 真实产出
+        # manifest v2 + 包装 payload(非仅翻译计划),产物过 validate_plugins.py --file;
+        # 负例三条(缺 Exec / 非法格式 / 空文件)用 `!` 反向断言,须各自非 0 退出。
+        # 夹具与产物全部落在 /tmp,仓库内不新增翻译产物;translator 只按 Exec= 字符串转发,
+        # 不解析/执行外部二进制(约束 47),本步骤亦不执行任何 payload。
+        run: |
+          mkdir -p /tmp/m10-translate /tmp/m10-neg
+          python3 plugins/compat/desktop-entry/translator.py \
+            --manifest plugins/optional/demo-desktop-app/plugin.json --out /tmp/m10-translate | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          assert d['status'] == 'translated', f\"expected 'translated', got {d['status']}\"
+          assert d['kind'] == 'descriptor-level', d['kind']
+          print('TRANSLATE OK', d['manifest'])
+          "
+          test -f /tmp/m10-translate/plugin.json
+          test -f /tmp/m10-translate/demo-desktop-app.payload
+          python3 tools/validate_plugins.py --file /tmp/m10-translate/plugin.json
+          cat > /tmp/m10-neg/plugin.json <<'JSON'
+          {"schema_version": "2", "name": "neg-src", "version": "0.1.0", "type": "compat-bridge", "uninstallable": true,
+           "payload": "app.desktop", "container": {"desktop": "windowed"}, "protocols": ["desktop-entry"],
+           "translator": "plugins/compat/desktop-entry/translator.py"}
+          JSON
+          printf '' > /tmp/m10-neg/empty.desktop
+          printf '{\n  "not": "a desktop entry",\n  "answer": 42\n}\n' > /tmp/m10-neg/bad.desktop
+          printf '[Desktop Entry]\nType=Application\nName=No Exec Demo\n' > /tmp/m10-neg/noexec.desktop
+          ! python3 plugins/compat/desktop-entry/translator.py --manifest /tmp/m10-neg/plugin.json --payload /tmp/m10-neg/noexec.desktop --out /tmp/m10-neg-out
+          ! python3 plugins/compat/desktop-entry/translator.py --manifest /tmp/m10-neg/plugin.json --payload /tmp/m10-neg/bad.desktop --out /tmp/m10-neg-out
+          ! python3 plugins/compat/desktop-entry/translator.py --manifest /tmp/m10-neg/plugin.json --payload /tmp/m10-neg/empty.desktop --out /tmp/m10-neg-out
+          ! test -e /tmp/m10-neg-out
+          mkdir -p /tmp/m10-loadtree/optional/demo-desktop-app
+          cp /tmp/m10-translate/plugin.json /tmp/m10-translate/demo-desktop-app.payload /tmp/m10-loadtree/optional/demo-desktop-app/
+          printf '[plugins]\nenabled = ["demo-desktop-app"]\n' > /tmp/m10-loadtree.toml
+          python3 tools/load_plugins.py --plugins-root /tmp/m10-loadtree --config /tmp/m10-loadtree.toml | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          assert d['load_order'] == ['demo-desktop-app'], d['load_order']
+          print('TRANSLATED ARTIFACT LOADABLE OK', d['load_order'])
+          "
+
   license:
     name: license (reuse lint, submodules excluded per spec 5 / risk 2)
     runs-on: ubuntu-latest
@@ -186,7 +227,10 @@ jobs:
           test -n "$FILES" || { echo "::error::no C/H files found under kernel/"; exit 1; }
           printf '%s\n' "$FILES" | xargs -d '\n' cppcheck --language=c --enable=warning --error-exitcode=1
       - name: pyflakes (python tools)
-        run: python3 -m pyflakes tools/*.py plugins/compat/stub-runtime/*.py
+        # M10-6 关门(F7③):目标由 stub-runtime 单目录扩为 plugins/compat/*/*.py,
+        # 覆盖 M10 新增的 compat/desktop-entry/translator.py(本地已验 pyflakes 干净);
+        # 方向只许更严,不是放宽。
+        run: python3 -m pyflakes tools/*.py plugins/compat/*/*.py
 
   spec-consistency:
     # 分工:etherkit-consistency 管生成物漂移/slogan/make check/index 存在性(test -f);
@@ -233,7 +277,9 @@ jobs:
           # 保护(删了也不红)。二者当前确实存在于 acceptance-standard.md,扩了是
           # 门禁增强、不会假红。方向只许更严。
           # M9-3 再扩到 M9:M8 之后 M9 章节亦已入库,同理扩了是门禁增强、不会假红。
-          for m in ("M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9"):
+          # M10-6 再扩到 M10:M10 章节已入库(acceptance-standard.md:130),同理扩了是
+          # 门禁增强、不会假红。方向只许更严。
+          for m in ("M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10"):
             if not any(line == f"## {m}" or line.startswith(f"## {m} ") for line in std_lines):
               fails.append(f"acceptance-standard.md missing section: {m}")
           # (c) spec anchor referenced by .etherkit/AGENTS.md
