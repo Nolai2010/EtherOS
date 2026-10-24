@@ -115,7 +115,9 @@ jobs:
       - name: Desktop-entry translation smoke (M10 real translator)
         # M10-01/02/03/05:compat 层首次真翻译 —— 外部 .desktop 描述符 → translator 真实产出
         # manifest v2 + 包装 payload(非仅翻译计划),产物过 validate_plugins.py --file;
-        # 负例三条(缺 Exec / 非法格式 / 空文件)用 `!` 反向断言,须各自非 0 退出。
+        # 负例三条用 `!` 反向断言,须各自非 0 退出。M13 起 --manifest/--payload 二选一(约束 64),
+        # 故这三条(同给形态)实为 XOR 拒绝层负例;内容级负例(缺 Exec/非法格式/空文件)由
+        # M13 passthrough smoke 以直通形态覆盖(验收条目 M13-04 末款)。
         # 夹具与产物全部落在 /tmp,仓库内不新增翻译产物;translator 只按 Exec= 字符串转发,
         # 不解析/执行外部二进制(约束 47),本步骤亦不执行任何 payload。
         run: |
