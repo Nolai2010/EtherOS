@@ -453,6 +453,10 @@ jobs:
             exit 1
           fi
           echo "$out" | grep -q "not a freedesktop desktop entry" || { echo "::error::bad-format reason missing: $out"; exit 1; }
+          printf '' > "$RT/m13-pt-src/empty.desktop"
+          ! python3 plugins/compat/desktop-entry/translator.py --payload "$RT/m13-pt-src/empty.desktop" --out "$RT/m13-neg-out"
+          printf '[Desktop Entry]\nType=Link\nName=Link PT Demo\nURL=http://example.invalid\n' > "$RT/m13-pt-src/link.desktop"
+          ! python3 plugins/compat/desktop-entry/translator.py --payload "$RT/m13-pt-src/link.desktop" --out "$RT/m13-neg-out"
           ! test -e "$RT/m13-neg-out" || { echo "::error::rejected runs must not produce an output directory"; exit 1; }
           echo "PASSTHROUGH SMOKE OK (M13 real passthrough + declared-mode regression)"
 
