@@ -5,14 +5,16 @@ kernel/interfaces/plugin-routing.md route 原语的宿主侧参考实现:输出�
 manifest 已声明 protocols,零格式知识、不检视 payload 内容(契约 §1/§3)。
 --protocol <p>:在 enabled 的 compat-bridge 中解析 plugin→translator→payload 路由链 JSON,
 零命中(ENOENT)/多命中(EAMBIGUOUS)→ 逐条 FAIL + exit 1;--run <name>:native 经 sh 调 payload
-(双保险不依赖可执行位),compat-bridge 仅调用户态 translator 出翻译计划、绝不执行 foreign
-payload(约束 16/17);两参数缺省=打印 enabled 全集路由摘要 exit 0。约束 12:config [plugins]
+(双保险不依赖可执行位)并按 process-confined 边界执行(隔离契约 §4.2,M12-03 显式行为变化,约束
+59:净化环境仅透传 PATH/HOME/LANG + cwd 锁定 payload 所在目录),compat-bridge 仅调用户态
+translator 出翻译计划、绝不执行 foreign payload(约束 16/17,路径零变化);两参数缺省=打印
+enabled 全集路由摘要 exit 0。约束 12:config [plugins]
 enabled 是启用唯一事实源(builtin/dev 隐式启用,与 validator 同语义)。
 --load-state <file>(M11 附加模式,约束 53):--protocol 查询改从装载状态(tools/load_state.py 产物,
 loader-contract.md §7)的激活路由表 routes 解析,命中输出与缺省模式同族键名(query/route/next/status,
 route 四键全部取自装载状态),未激活 → FAIL + exit 1(原因区别于缺省模式的树中无声明);装载状态只供
 route 查询,与 --run 并用或缺 --protocol 即拒;无 --load-state 时行为逐字不变(plugin-routing.md §5)。"""
-import argparse, json, subprocess, sys, tomllib
+import argparse, json, os, subprocess, sys, tomllib
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -112,7 +114,23 @@ def cmd_load_state(state_path, protocol):
     return 0
 
 
+# process-confined 边界(隔离契约 §4.2,M12-03,约束 59):native payload 执行时的环境净化白名单——
+# 仅透传 PATH/HOME/LANG(取当时环境值,存在才给),其余继承变量一律剥除(含代理类
+# http_proxy/https_proxy/HTTPS_PROXY/all_proxy/no_proxy 与任何 ETHEROS_*)。
+CONFINED_ENV_KEYS = ("PATH", "HOME", "LANG")
+
+
+def confined_env():
+    """净化环境:仅保留 CONFINED_ENV_KEYS 中当时存在的变量(契约 §4.2,缺则不给)。"""
+    return {k: os.environ[k] for k in CONFINED_ENV_KEYS if k in os.environ}
+
+
 def cmd_run(plugins, name):
+    """--run 执行语义(M12-03,约束 59 显式行为变化):native payload 经 sh 子进程按 process-confined
+    边界执行(隔离契约 §4.2)——env 净化(仅透传 PATH/HOME/LANG,其余继承变量一律剥除,含代理类
+    http_proxy/https_proxy/HTTPS_PROXY/all_proxy 与任何 ETHEROS_*)+ cwd 锁定为 payload 所在目录;
+    退出码/stdout/stderr 透传语义不变(returncode 非 0 即 deny 明因)。compat-bridge 路径零变化
+    (约束 17):仍只调用户态 translator 出翻译计划,外部 payload 永不执行(契约 §4.1 reference-only)。"""
     if name not in plugins:
         fail(name, "no such enabled plugin (Global Constraint 12)")
         return 1
@@ -128,7 +146,8 @@ def cmd_run(plugins, name):
     ppath = (jf.parent / m.get("payload", "")).resolve()  # native: 经 sh 调 payload(双保险,不依赖可执行位)
     if not m.get("payload") or not ppath.is_file():
         return deny(f"payload {m.get('payload')!r} does not resolve to an existing file (load: EINVAL)")
-    if subprocess.run(["sh", str(ppath)]).returncode:
+    # native: process-confined 边界(契约 §4.2)——净化环境(仅 PATH/HOME/LANG)+ cwd 锁定 payload 所在目录
+    if subprocess.run(["sh", str(ppath)], cwd=ppath.parent, env=confined_env()).returncode:
         return deny("payload exited non-zero")
     return 0
 
@@ -143,7 +162,7 @@ def cmd_summary(plugins):
 def main():
     ap = argparse.ArgumentParser(description="EtherOS userland protocol route resolver (M3, host-side reference of kernel/interfaces/plugin-routing.md)")
     ap.add_argument("--protocol", help="resolve route chain for a protocol token")
-    ap.add_argument("--run", metavar="PLUGIN", help="run native payload via sh; compat-bridge gets translator plan only")
+    ap.add_argument("--run", metavar="PLUGIN", help="run native payload via sh under the process-confined boundary (sanitized env: PATH/HOME/LANG only; cwd locked to the payload dir); compat-bridge gets translator plan only")
     ap.add_argument("--config", default=str(REPO / "config" / "default.toml"), help="config TOML path")
     ap.add_argument("--load-state", metavar="FILE", help="resolve --protocol from a materialized load state (tools/load_state.py output; route queries only)")
     args = ap.parse_args()
