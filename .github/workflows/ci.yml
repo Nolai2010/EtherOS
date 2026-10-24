@@ -227,7 +227,10 @@ jobs:
           test -n "$FILES" || { echo "::error::no C/H files found under kernel/"; exit 1; }
           printf '%s\n' "$FILES" | xargs -d '\n' cppcheck --language=c --enable=warning --error-exitcode=1
       - name: pyflakes (python tools)
-        run: python3 -m pyflakes tools/*.py plugins/compat/stub-runtime/*.py
+        # M10-6 关门(F7③):目标由 stub-runtime 单目录扩为 plugins/compat/*/*.py,
+        # 覆盖 M10 新增的 compat/desktop-entry/translator.py(本地已验 pyflakes 干净);
+        # 方向只许更严,不是放宽。
+        run: python3 -m pyflakes tools/*.py plugins/compat/*/*.py
 
   spec-consistency:
     # 分工:etherkit-consistency 管生成物漂移/slogan/make check/index 存在性(test -f);
@@ -274,7 +277,9 @@ jobs:
           # 保护(删了也不红)。二者当前确实存在于 acceptance-standard.md,扩了是
           # 门禁增强、不会假红。方向只许更严。
           # M9-3 再扩到 M9:M8 之后 M9 章节亦已入库,同理扩了是门禁增强、不会假红。
-          for m in ("M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9"):
+          # M10-6 再扩到 M10:M10 章节已入库(acceptance-standard.md:130),同理扩了是
+          # 门禁增强、不会假红。方向只许更严。
+          for m in ("M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10"):
             if not any(line == f"## {m}" or line.startswith(f"## {m} ") for line in std_lines):
               fails.append(f"acceptance-standard.md missing section: {m}")
           # (c) spec anchor referenced by .etherkit/AGENTS.md

@@ -29,6 +29,7 @@
 | 本地化键 `Name[xx]=` / `Comment[xx]=` | 忽略 | 只取未本地化的键。 |
 | 非 `[Desktop Entry]` 段（如 `[Desktop Action x]`） | 忽略 | 防同名键污染。 |
 | 行续接（`\` 结尾） | 不受理 | 当前不做续接解析。 |
+| 重复 `Key=` | 取**首次出现值** | `setdefault`（translator.py:109）；freedesktop 规范下重复键属非法输入，此处不报错、取首次值继续。 |
 
 ## `name` 归一化规则（差异点 4）
 
