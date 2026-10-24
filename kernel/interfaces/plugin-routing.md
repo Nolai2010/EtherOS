@@ -63,3 +63,14 @@ EtherOS 内核只做三件事：**调度、协议/能力解释（路由）、加
 ## 4. 机器可读形态
 
 `router_if.h` 是本契约的 C 头文件桩：include guard + 三原语函数签名声明，文件头注明 **contract stub, not compiled**。它不被任何构建系统引用，仅作为契约锚点存在；其类型/返回码命名与本文件 §2 一一对应。
+
+## 5. route ← load-state 消费语义（M11）
+
+route 原语（§2.1）的宿主侧参考实现 `tools/route_plugins.py` 有**两种消费途径**，语义等价：
+
+1. **缺省途径（直接扫 config）**：直接扫描插件树，以 `config/default.toml` 为启用事实源解析协议路由（M3 既有行为，逐字未变）；
+2. **装载状态途径（`--load-state`）**：消费装载状态（`kernel/interfaces/loader-contract.md` §7）的激活路由表 `routes`——该表在装载期已由 `tools/load_state.py` 按 plan 物化（仅已装载的 compat-bridge 且声明了该协议 token 才激活；两个已装载条目声明同一 token 已在装载期拒绝，约束 55）。
+
+**语义等价性**：两条途径解析的「协议 token → 插件绑定」同源（均出自 manifest 已声明的 `protocols` 字段，内核不做任何语义推断）；装载状态途径只是把「扫树 + 启用判定」提前到装载期完成，route 查询消费其结果。歧义语义两途径一致——多命中即拒、不静默择一——只是装载状态途径将 `EAMBIGUOUS` **提前到装载期**（约束 55）。
+
+**边界**：`--load-state` 只供 route 查询；装载状态表示「宿主侧已登记 + 路由已激活」，**不表示已启动、更不表示已运行**；内核侧装载与镜像内启动期装载属后续里程碑（约束 29）。

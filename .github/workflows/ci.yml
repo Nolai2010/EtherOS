@@ -153,6 +153,85 @@ jobs:
           print('TRANSLATED ARTIFACT LOADABLE OK', d['load_order'])
           "
 
+      - name: Load-state smoke (M11 real load)
+        # M11-02/03/04/05:装载闭环首次端到端 smoke —— plan(load_plugins.py,M7 一字未改)→
+        # load state(load_state.py,M11 宿主侧真装载:registry + 激活 routes + isolation 派生)
+        # → route 消费(route_plugins.py --load-state,M11-04 附加模式)。正例链断言:
+        # status "loaded" / stage "M11-loader-load" / registry id 序列 == plan load_order /
+        # routes 键集合恰为 {"ipa"}(不含 "desktop-entry" —— demo-desktop-app 未启用,承袭
+        # plan skipped,约束 50)/ ipa → douyin,并实跑 --load-state 查询(exit 0 且
+        # route.plugin == "douyin")与未激活协议(desktop-entry 非 0,原因含「装载状态」,
+        # 区别于缺省模式的树中无 enabled 插件声明)。负例 A:plan 条目 id 篡改为树中不存在
+        # 值(load_order 同步改一致,防契约 §8-7 不一致拒绝掩盖 §8-4 的 ENOENT)→ 非 0。
+        # 负例 B:最小两插件夹具树(/tmp,同 M9 拓扑负例先例),两个已启用 compat-bridge 同声明
+        # ipa → 装载期 EAMBIGUOUS 拒绝(约束 55:歧义提前到装载期,不静默择一);夹具 plugin.json
+        # 取 schema v2 基本形态(translator 指向仓库内 stub-runtime),payload 为真实小文件。
+        # 产物与夹具全落 $RUNNER_TEMP(缺省 /tmp)/tmp,仓库内零新增;本步骤不执行任何 payload。
+        run: |
+          RT="${RUNNER_TEMP:-/tmp}"
+          python3 tools/load_plugins.py > "$RT/m11-plan.json"
+          python3 tools/load_state.py --plan "$RT/m11-plan.json" --out "$RT/m11-state.json"
+          python3 - "$RT/m11-plan.json" "$RT/m11-state.json" <<'PY'
+          import json, sys
+          plan = json.load(open(sys.argv[1], encoding="utf-8"))
+          state = json.load(open(sys.argv[2], encoding="utf-8"))
+          assert state["status"] == "loaded", state["status"]
+          assert state["stage"] == "M11-loader-load", state["stage"]
+          assert [e["id"] for e in state["registry"]] == plan["load_order"], "registry id order must equal plan load_order"
+          assert state["load_order"] == plan["load_order"], "state load_order must equal plan load_order"
+          assert set(state["routes"]) == {"ipa"}, f"routes must be exactly ipa: {sorted(state['routes'])}"
+          assert "desktop-entry" not in state["routes"], "demo-desktop-app not loaded; desktop-entry must not be activated"
+          assert state["routes"]["ipa"]["plugin"] == "douyin", state["routes"]["ipa"]
+          print("LOAD STATE OK", state["load_order"], sorted(state["routes"]))
+          PY
+          python3 tools/route_plugins.py --load-state "$RT/m11-state.json" --protocol ipa | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          assert d['route']['plugin'] == 'douyin', d['route']
+          assert d['status'] == 'routed', d['status']
+          print('ROUTE VIA LOAD STATE OK', d['route']['plugin'])
+          "
+          if out=$(python3 tools/route_plugins.py --load-state "$RT/m11-state.json" --protocol desktop-entry 2>&1); then
+            echo "::error::inactive protocol desktop-entry must exit non-zero (route via load state: ENOENT)"
+            exit 1
+          fi
+          echo "$out" | grep -q "装载状态" || { echo "::error::inactive reason must mention 装载状态: $out"; exit 1; }
+          python3 - "$RT/m11-plan.json" "$RT/m11-plan-ghost.json" <<'PY'
+          import json, sys
+          plan = json.load(open(sys.argv[1], encoding="utf-8"))
+          ghost = "ghost-plugin-not-in-tree"
+          old = plan["enabled"][0]["id"]
+          plan["enabled"][0]["id"] = ghost
+          plan["load_order"] = [ghost if p == old else p for p in plan["load_order"]]
+          json.dump(plan, open(sys.argv[2], "w", encoding="utf-8"))
+          PY
+          if out=$(python3 tools/load_state.py --plan "$RT/m11-plan-ghost.json" 2>&1); then
+            echo "::error::plan entry id not in tree must be rejected (load: ENOENT)"
+            exit 1
+          fi
+          echo "$out" | grep -q "ENOENT" || { echo "::error::expected ENOENT for the ghost id: $out"; exit 1; }
+          mkdir -p /tmp/m11-amb/optional/amb-a /tmp/m11-amb/optional/amb-b
+          : > /tmp/m11-amb/optional/amb-a/payload.bin
+          : > /tmp/m11-amb/optional/amb-b/payload.bin
+          cat > /tmp/m11-amb/optional/amb-a/plugin.json <<'JSON'
+          {"schema_version": "2", "name": "amb-a", "version": "0.1.0", "type": "compat-bridge", "uninstallable": true,
+           "payload": "payload.bin", "container": {"desktop": "windowed"}, "protocols": ["ipa"],
+           "translator": "plugins/compat/stub-runtime/translator.py"}
+          JSON
+          cat > /tmp/m11-amb/optional/amb-b/plugin.json <<'JSON'
+          {"schema_version": "2", "name": "amb-b", "version": "0.1.0", "type": "compat-bridge", "uninstallable": true,
+           "payload": "payload.bin", "container": {"desktop": "windowed"}, "protocols": ["ipa"],
+           "translator": "plugins/compat/stub-runtime/translator.py"}
+          JSON
+          printf '[plugins]\nenabled = ["amb-a", "amb-b"]\n' > /tmp/m11-amb.toml
+          python3 tools/load_plugins.py --plugins-root /tmp/m11-amb --config /tmp/m11-amb.toml > "$RT/m11-amb-plan.json"
+          if out=$(python3 tools/load_state.py --plan "$RT/m11-amb-plan.json" --plugins-root /tmp/m11-amb 2>&1); then
+            echo "::error::two loaded compat-bridges declaring ipa must be rejected at load time (load: EAMBIGUOUS)"
+            exit 1
+          fi
+          echo "$out" | grep -q "EAMBIGUOUS" || { echo "::error::expected EAMBIGUOUS: $out"; exit 1; }
+          echo "LOAD-STATE SMOKE OK (M11 real load + route consumption)"
+
   license:
     name: license (reuse lint, submodules excluded per spec 5 / risk 2)
     runs-on: ubuntu-latest
@@ -279,7 +358,8 @@ jobs:
           # M9-3 再扩到 M9:M8 之后 M9 章节亦已入库,同理扩了是门禁增强、不会假红。
           # M10-6 再扩到 M10:M10 章节已入库(acceptance-standard.md:130),同理扩了是
           # 门禁增强、不会假红。方向只许更严。
-          for m in ("M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10"):
+          # M11-8 再扩到 M11(清偿审查 Minor 2):M11 章节已入库,同理;每里程碑扩一次。
+          for m in ("M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10", "M11"):
             if not any(line == f"## {m}" or line.startswith(f"## {m} ") for line in std_lines):
               fails.append(f"acceptance-standard.md missing section: {m}")
           # (c) spec anchor referenced by .etherkit/AGENTS.md

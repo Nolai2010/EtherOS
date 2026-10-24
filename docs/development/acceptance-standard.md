@@ -157,3 +157,14 @@ M1(底座基线)/M2(schema+配置)/M3(兼容桩)/M4(内建归位)/M5(CI 六项)/
 
 > 记档(非 FAIL,供终审裁量):aarch64 无独立构建证据(spec 目标句含之,出口标准字面未列,差异段 2)。
 > M1 关闭形态:tag `v0.1.0-m1`。
+
+## M11 · 装载闭环（plan → load 物化 → 路由消费）
+
+| 编号 | 标准 | 验证方式 |
+|---|---|---|
+| M11-01 | 装载契约扩展在位：loader-contract.md 定义 load 语义与装载状态 JSON 键名（status "loaded" 及诚实边界明文）；loader_if.h 对应结构与原语声明；plugin-routing.md 同步 route ← load-state 消费语义 | 文件实读 + 键名集合比对 |
+| M11-02 | 真装载器存在：tools/load_state.py 消费 tools/load_plugins.py 的 plan（按 id 回读 manifest 补协议/translator 字段），成功输出 `status: "loaded"` 并真实物化 registry（顺序与 plan load_order 逐项相等）+ routes 激活表 + isolation 派生声明 | CLI 实跑 + 产物键名/顺序断言 |
+| M11-03 | 装载产物被真实消费：route_plugins.py --load-state 从装载状态解析协议路由（如 ipa → douyin 链，exit 0）；未启用插件的协议不被激活（demo-desktop-app 的 desktop-entry 不在激活表） | 实跑 + 激活表内容断言 |
+| M11-04 | 诚实边界：load-state 输出与契约/README 明写"loaded = 宿主侧已登记 + 路由已激活，非已启动/非已运行；内核侧装载与镜像内启动期装载属后续"；load_plugins.py 默认输出仍为 plan-only 逐字不变 | 文件实读 + 默认输出回归比对 |
+| M11-05 | 负例：plan/tree 漂移（plan 条目 id 不在树中 / payload 引用与 manifest 不符 / load_order 与条目集不一致 / status 非 plan-only）→ 各自非 0 退出并给出原因；两个已装载插件声明同一协议 token → 装载期 EAMBIGUOUS 拒绝 | 逐条实跑 |
+| M11-06 | 旧门禁零回退：十 job 名与行为不变（既有 step 零改动、只追加），load_plugins.py 与 route_plugins.py 缺省输出同 v0.10.0-m10 逐项相等，release.yml 零 diff | CI 十 job 全绿 + 输出回归比对 |

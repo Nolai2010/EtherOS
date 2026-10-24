@@ -101,12 +101,66 @@ typedef struct etheros_load_plan {
 } etheros_load_plan;
 
 /* ------------------------------------------------------------------ */
+/* Load state structures (M11): the materialized host-side result of   */
+/* applying a plan-only plan.  The order of "registry" IS the load     */
+/* order, item by item identical to the plan's load_order.             */
+/* ------------------------------------------------------------------ */
+
+/* Protocol token: a manifest-declared "protocols" entry, opaque. */
+typedef const char *etheros_protocol_token;
+
+/* Translator reference: points at the userland translator declared by a
+ * plugin manifest ("translator"); opaque, never executed by the kernel. */
+typedef const char *etheros_translator_ref;
+
+/* One registry entry of the materialized load state: the six plan-entry
+ * fields (id/type/category/payload/container/capabilities) plus the
+ * manifest-declared protocols and translator, the in-tree manifest path
+ * and the derived (planned, non-enforced) isolation level. */
+typedef struct etheros_load_state_entry {
+    etheros_plugin_id          id;
+    etheros_plugin_type        type;
+    etheros_category           category;
+    etheros_payload_ref        payload;
+    etheros_container_policy_t container;
+    etheros_cap_id            *capabilities;
+    etheros_protocol_token    *protocols;  /* manifest "protocols"; NULL if none */
+    etheros_translator_ref     translator; /* manifest "translator"; NULL if none */
+    const char                *manifest;   /* in-tree manifest path (repo-root relative) */
+    etheros_isolation_level    isolation;  /* planned boundary; not enforced here */
+} etheros_load_state_entry;
+
+/* One activated route: a protocol token bound to the loaded plugin that
+ * declared it.  Only loaded compat-bridge entries with non-empty
+ * protocols activate routes. */
+typedef struct etheros_load_route {
+    etheros_protocol_token token;
+    etheros_plugin_id      plugin;
+    const char            *manifest;
+    etheros_translator_ref translator;
+    etheros_payload_ref    payload;
+} etheros_load_route;
+
+/* Load state: registry (in plan load order), the activated route table
+ * and the skipped entries carried over verbatim from the plan. */
+typedef struct etheros_load_state {
+    etheros_load_state_entry *registry;
+    unsigned int              registry_count;
+    etheros_load_route       *routes;
+    unsigned int              route_count;
+    etheros_skip_entry       *skipped;
+    unsigned int              skipped_count;
+    const char               *stage; /* current stage; M11 load takes "M11-loader-load" */
+} etheros_load_state;
+
+/* ------------------------------------------------------------------ */
 /* Result codes                                                        */
 /* ------------------------------------------------------------------ */
 
-#define ETHEROS_OK     0    /* plan produced */
-#define ETHEROS_ENOENT (-1) /* enabled id or dependency matches no manifest */
-#define ETHEROS_EINVAL (-2) /* bad manifest, dangling payload, bad dependency */
+#define ETHEROS_OK         0    /* plan produced */
+#define ETHEROS_ENOENT     (-1) /* enabled id or dependency matches no manifest */
+#define ETHEROS_EINVAL     (-2) /* bad manifest, dangling payload, bad dependency */
+#define ETHEROS_EAMBIGUOUS (-3) /* two loaded plugins declare the same protocol token */
 
 /* ------------------------------------------------------------------ */
 /* Primitive: plan_load                                                */
@@ -123,5 +177,22 @@ typedef struct etheros_load_plan {
 /*   the cycle members reported.                                       */
 /* ------------------------------------------------------------------ */
 int etheros_plan_load(const etheros_load_request *request, etheros_load_plan *out_plan);
+
+/* ------------------------------------------------------------------ */
+/* Primitive: load_apply                                               */
+/*   load_apply(plan, request) -> load_state                           */
+/*   Apply a plan-only plan: read back each plan entry's manifest in   */
+/*   load_order (protocols/translator), materialize host-side state    */
+/*   (registry, activated routes, derived isolation).  apply a         */
+/*   plan-only plan, materialize host-side state; binds nothing into   */
+/*   the kernel, starts nothing.                                       */
+/*   Drift (plan entry id absent from the tree, manifest/plan payload  */
+/*   mismatch, dangling payload, load_order inconsistent with the      */
+/*   entry set, non-plan-only or foreign contract) => EINVAL / ENOENT; */
+/*   two loaded entries declaring the same protocol token =>           */
+/*   ETHEROS_EAMBIGUOUS (rejected at load time, not at route time).    */
+/* ------------------------------------------------------------------ */
+int etheros_load_apply(const etheros_load_plan *plan, const etheros_load_request *request,
+                       etheros_load_state *out_state);
 
 #endif /* ETHEROS_KERNEL_INTERFACES_LOADER_IF_H */

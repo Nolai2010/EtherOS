@@ -39,3 +39,5 @@
 | `docs/reports/2026-10-18-m9-acceptance.md` | M9 独立验收报告（6/6 PASS；schema v2 破坏性升级、dependencies 语义断言、拓扑装载与依赖环拒绝的实证） |
 | `../plugins/compat/desktop-entry/README.md` | compat 桌面条目翻译器（M10 真 translator）：.desktop 描述符 → manifest v2 + 包装 payload 的字段映射表、name 归一化五步规则、诚实边界（描述符级、非二进制指令翻译）、负例口径 |
 | `docs/reports/2026-10-24-m10-acceptance.md` | M10 独立验收报告（6/6 PASS；诚实边界红线六层取证、端到端闭环复现、负例独立复跑、M10-06 零回退口径记档） |
+| `../tools/load_state.py` | 宿主侧装载器（M11 真装载）：消费 `tools/load_plugins.py` 的计划（启用集权威是 plan，不重读 config）物化装载状态——registry + routes 激活表 + isolation 派生声明；输出 `status: "loaded"`（宿主侧已登记+路由已激活，非已启动/非已运行）；plan/tree 漂移与协议歧义装载期拒绝 |
+| `docs/reports/2026-10-24-m11-acceptance.md` | M11 独立验收报告（6/6 PASS；load 原语首次真正执行、装载产物被 route --load-state 真实消费、缺省路径六调用逐字节回归、CI smoke 非空转五探针、M11-06 零回退口径记档） |
