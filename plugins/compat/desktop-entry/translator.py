@@ -17,13 +17,18 @@
 freedesktop 桌面条目是真实存在的纯文本描述符格式(`[Desktop Entry]` / `Name=` /
 `Exec=` / `Type=` …),可被真正解析;而二进制指令翻译属 spec §6 风险 8 明示的后期项。
 
-CLI(沿用 M3 契约,与 plugins/compat/stub-runtime/translator.py 同形):
-  translator.py --manifest <源声明 JSON> [--payload <.desktop 路径>]
+CLI(M13 起 `--manifest` 与 `--payload` 二选一;声明模式行为逐字节不变,约束 63):
+  translator.py (--manifest <源声明 JSON> | --payload <.desktop 路径>)
                 [--out <输出目录>] [--name <覆盖插件 id>]
-  --payload 缺省时取 manifest 的 payload 字段(相对 manifest 所在目录解析)。
-  --out 缺省为 <manifest 所在目录>/translated。
+  声明模式(`--manifest`):`--payload` 缺省时取 manifest 的 payload 字段(相对 manifest 所在目录解析);
+    `--out` 缺省为 <manifest 所在目录>/translated。与 M10 逐字节不变(约束 63)。
+  直通模式(`--payload` 且无 `--manifest`,M13 新增):源即该 `.desktop` 文件;`--out` **必填**
+    (无 manifest 目录可依附,缺省值无意义——拒绝比猜测诚实,差异点 3);id 撞名**无"重翻译自身"例外**
+    (直通产物不在树中,无幂等对象可言,撞名即拒,约束 65)。
+  两模式共用同一解析/门禁/归一化/产物代码路径;result JSON 与 manifest 键名集合逐字相同
+    (零新输出键,约束 66)。
   exit 0 = 已真实写出 manifest + 包装 payload(打印结果 JSON);
-  exit 2 = 拒绝(入口不可用/非 desktop-entry/缺关键字段/id 冲突等),给出原因、不产出。
+  exit 2 = 拒绝(入口不可用/非 desktop-entry/缺关键字段/id 冲突/参数互斥等),给出原因、不产出。
 stdlib only(与 M3 stub 同族);不导入/链接任何 kernel/ 代码(约束 11)。
 """
 import argparse
@@ -167,22 +172,35 @@ def read_payload(ppath):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="EtherOS compat desktop-entry translator (M10, real descriptor-level translation)")
-    ap.add_argument("--manifest", required=True, help="source declaration JSON path")
-    ap.add_argument("--payload", help="payload path override (default: manifest payload field)")
-    ap.add_argument("--out", help="output directory (default: <manifest dir>/translated)")
+    ap = argparse.ArgumentParser(description="EtherOS compat desktop-entry translator (M10 real + M13 passthrough; descriptor-level translation)")
+    ap.add_argument("--manifest", help="source declaration JSON path (declared mode; mutually exclusive with --payload-only passthrough)")
+    ap.add_argument("--payload", help="payload path: override in declared mode (with --manifest), or standalone .desktop source in passthrough mode")
+    ap.add_argument("--out", help="output directory (default: <manifest dir>/translated in declared mode; REQUIRED in passthrough mode)")
     ap.add_argument("--name", help="override the normalized plugin id (must match ^[a-z][a-z0-9-]*$)")
     args = ap.parse_args()
 
-    mpath = Path(args.manifest)
-    manifest, reason = load_source(mpath)
-    if manifest is None:
-        return refuse(reason)
+    # M13 CLI 二选一(约束 64):--manifest 与 --payload 必须恰好给出一个,同给/都不给均拒。
+    if bool(args.manifest) == bool(args.payload):
+        return refuse("give exactly one of --manifest/--payload")
+    passthrough = args.manifest is None
+    if passthrough and not args.out:
+        # 直通模式无 manifest 目录可依附,缺省值无意义(差异点 3):拒绝比猜测诚实。
+        return refuse("passthrough mode (--payload without --manifest) requires --out "
+                      "— there is no manifest directory to default to")
 
-    payload = args.payload or manifest.get("payload", "")
-    if not payload:
-        return refuse("no payload path given (--payload) and manifest has no payload field")
-    ppath = (mpath.parent / payload).resolve() if not Path(payload).is_absolute() else Path(payload)
+    manifest = None
+    if not passthrough:
+        mpath = Path(args.manifest)
+        manifest, reason = load_source(mpath)
+        if manifest is None:
+            return refuse(reason)
+        payload = args.payload or manifest.get("payload", "")
+        if not payload:
+            return refuse("no payload path given (--payload) and manifest has no payload field")
+        ppath = (mpath.parent / payload).resolve() if not Path(payload).is_absolute() else Path(payload)
+    else:
+        payload = args.payload
+        ppath = Path(payload)
     if not ppath.is_file():
         return refuse(f"payload '{payload}' does not resolve to an existing file")
 
@@ -216,7 +234,9 @@ def main():
         if not ID_RE.match(pid):
             return refuse(f"Name={original_name!r} normalizes to {pid!r}, which violates ^[a-z][a-z0-9-]*$")
 
-    source_name = manifest.get("name") if isinstance(manifest.get("name"), str) else None
+    # 撞名检查:声明模式保留"重翻译自身"例外(源声明同名 → 幂等重跑);
+    # 直通模式无源声明(source_name=None),撞名即拒(约束 65,差异点 4)。
+    source_name = manifest.get("name") if (manifest is not None and isinstance(manifest.get("name"), str)) else None
     if pid != source_name and pid in tree_plugin_ids():
         return refuse(f"normalized plugin id '{pid}' (from Name={original_name!r}) collides with an existing plugin id in "
                       f"plugins/{{{','.join(CATEGORIES)}}} — refuse to overwrite another plugin (差异点 4)")

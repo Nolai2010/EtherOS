@@ -104,6 +104,17 @@
     不再是误伤,真扩展名(`payload/douyin.ipa` 等)仍一律拒绝(13 探针实证,方向为更精确而非放宽)。
   - `tools/load_plugins.py` / `tools/load_state.py` / schema / config / release.yml **零改动**;
     CI 十 job 名不变(plugin-schema 纯末尾追加 isolation smoke 一步)。
+- **v0.13.0-m13(translator 直通模式:裸 `.desktop` 原样翻译)**:
+  - `plugins/compat/desktop-entry/translator.py` 新增**直通模式**:`--payload <.desktop>` **无需 `--manifest`** 即可把外部桌面条目原样
+    翻译为插件 manifest v2 + 包装 payload(成功 `status: "translated"`)。此前"必须先写一份 EtherOS 源声明 JSON 才能翻译"是桩时代契约的残留。
+  - **接口变更(向后兼容)**:`--manifest` 与 `--payload` 现为**二选一**——带 `--manifest` 的既有调用行为与产物**逐字节不变**
+    (已对 v0.12.0-m12 基线做三路工作树机械比对);但**两者同时给出的组合形态自本版本起被拒**(该组合此前的"用 `--payload` 覆盖声明 payload"
+    这一用途已由直通模式完整取代)。直通模式下 `--out` 必填(无声明目录可依附)。
+  - 直通模式**无自撞名例外**:归一化 id 与任何已声明插件撞名即拒(声明模式"重翻译自身"的幂等例外不适用)。
+  - **零新输出键**:两种模式的 result JSON 与 manifest 键名集合逐字相同——模式差异只存在于 CLI 与文档,不进产物。
+  - **诚实边界延续**:仍是**描述符级翻译**(非二进制指令翻译);直通产物是**翻译产物而非用户声明**;不得宣称"支持运行 .desktop 应用"。
+  - 已知口径:M10 smoke 的三条负例(同给形态)现被参数层(XOR)拦下,内容级负例(无 Exec/非法格式/空文件/Type≠Application)
+    已整体迁至 M13 smoke 以直通形态覆盖——**负例总覆盖数不减**。
 
 ---
 

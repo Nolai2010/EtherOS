@@ -115,7 +115,9 @@ jobs:
       - name: Desktop-entry translation smoke (M10 real translator)
         # M10-01/02/03/05:compat 层首次真翻译 —— 外部 .desktop 描述符 → translator 真实产出
         # manifest v2 + 包装 payload(非仅翻译计划),产物过 validate_plugins.py --file;
-        # 负例三条(缺 Exec / 非法格式 / 空文件)用 `!` 反向断言,须各自非 0 退出。
+        # 负例三条用 `!` 反向断言,须各自非 0 退出。M13 起 --manifest/--payload 二选一(约束 64),
+        # 故这三条(同给形态)实为 XOR 拒绝层负例;内容级负例(缺 Exec/非法格式/空文件)由
+        # M13 passthrough smoke 以直通形态覆盖(验收条目 M13-04 末款)。
         # 夹具与产物全部落在 /tmp,仓库内不新增翻译产物;translator 只按 Exec= 字符串转发,
         # 不解析/执行外部二进制(约束 47),本步骤亦不执行任何 payload。
         run: |
@@ -362,6 +364,102 @@ jobs:
           fi
           echo "ISOLATION SMOKE OK (M12 isolate primitive + process-confined boundary evidence)"
 
+      - name: Desktop-entry passthrough smoke (M13 passthrough mode)
+        # M13-01/03/04:translator 直通模式(--payload 无 --manifest,M13 新增)端到端 smoke。
+        # 正例:heredoc 富样本 .desktop(含 Icon/Terminal/Comment/Categories/本地化键
+        # Name[zh_CN]=/未知键 X-EtherOS-Probe=1)落 $RUNNER_TEMP,translator 真实产出
+        # manifest v2 + 包装 payload,产物过 validate_plugins.py --file;断言 id 归一化
+        # (Rich Probe App → rich-probe-app)、本地化键/未知键不进 manifest、manifest 与
+        # result JSON 键名集合和声明模式产物逐字相同(零新输出键,约束 66)。
+        # 负例七条(互斥两给/直通缺 --out/直通撞名 Name=Douyin/无 Exec/非法 JSON/空文件/Type=Link):各自
+        # 非 0 退出 + stderr 明因;零产物兜底(! test -e 输出目录)覆盖全部负例——任一条意外成功即产出目录、兜底红。
+        # 回归:复跑声明模式(M10 smoke 同款命令)断言 status 与键集合同构;逐字节基线
+        # 比对由验收者用 v0.12.0-m12 worktree 执行。夹具与产物全落 $RUNNER_TEMP(缺省
+        # /tmp),仓库内零新增;本步骤不执行任何 payload(约束 47)。
+        run: |
+          RT="${RUNNER_TEMP:-/tmp}"
+          mkdir -p "$RT/m13-pt-src"
+          cat > "$RT/m13-pt-src/rich.desktop" <<'DESKTOP'
+          [Desktop Entry]
+          Type=Application
+          Name=Rich Probe App
+          Exec=/usr/bin/rich-probe
+          Icon=rich-probe
+          Terminal=false
+          Comment=A rich sample for passthrough smoke
+          Categories=Utility;Development;
+          Name[zh_CN]=富样本应用
+          X-EtherOS-Probe=1
+          DESKTOP
+          python3 plugins/compat/desktop-entry/translator.py --payload "$RT/m13-pt-src/rich.desktop" --out "$RT/m13-pt" | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          assert d['status'] == 'translated', f\"expected 'translated', got {d['status']}\"
+          assert d['plugin'] == 'rich-probe-app', d['plugin']
+          assert d['kind'] == 'descriptor-level', d['kind']
+          assert set(d) == {'plugin', 'source_format', 'target_format', 'protocols', 'status', 'kind',
+                            'source_payload', 'manifest', 'payload', 'steps', 'note'}, sorted(d)
+          print('PASSTHROUGH OK', d['manifest'])
+          "
+          test -f "$RT/m13-pt/plugin.json"
+          test -f "$RT/m13-pt/rich-probe-app.payload"
+          python3 tools/validate_plugins.py --file "$RT/m13-pt/plugin.json"
+          python3 plugins/compat/desktop-entry/translator.py --manifest plugins/optional/demo-desktop-app/plugin.json --out "$RT/m13-reg" | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          assert d['status'] == 'translated', f\"expected 'translated', got {d['status']}\"
+          assert d['plugin'] == 'demo-desktop-app', d['plugin']
+          print('DECLARED REGRESSION OK', d['manifest'])
+          "
+          python3 - "$RT/m13-pt/plugin.json" "$RT/m13-reg/plugin.json" <<'PY'
+          import json, sys
+          pt = json.load(open(sys.argv[1], encoding="utf-8"))
+          reg = json.load(open(sys.argv[2], encoding="utf-8"))
+          assert set(pt) == set(reg), f"passthrough keys {sorted(pt)} != declared keys {sorted(reg)}"
+          assert pt["name"] == "rich-probe-app" and reg["name"] == "demo-desktop-app"
+          assert pt["protocols"] == ["desktop-entry"] == reg["protocols"]
+          assert pt["schema_version"] == "2" == reg["schema_version"]
+          assert "capabilities" in pt and "capabilities" in reg, "both samples declare Categories"
+          raw = json.dumps(pt)
+          for leaked in ("zh_CN", "X-EtherOS-Probe", "Icon", "Terminal", "富样本"):
+              assert leaked not in raw, f"localized/unknown key leaked into manifest: {leaked}"
+          print("KEY SETS IDENTICAL (zero new output keys)", sorted(pt))
+          PY
+          printf '[Desktop Entry]\nType=Application\nName=Douyin\nExec=/usr/bin/douyin\n' > "$RT/m13-pt-src/douyin.desktop"
+          printf '[Desktop Entry]\nType=Application\nName=No Exec PT\n' > "$RT/m13-pt-src/noexec.desktop"
+          printf '{\n  "not": "a desktop entry",\n  "answer": 42\n}\n' > "$RT/m13-pt-src/bad.desktop"
+          if out=$(python3 plugins/compat/desktop-entry/translator.py --manifest plugins/optional/demo-desktop-app/plugin.json --payload "$RT/m13-pt-src/rich.desktop" --out "$RT/m13-neg-out" 2>&1); then
+            echo "::error::--manifest with --payload must be rejected (give exactly one of --manifest/--payload): $out"
+            exit 1
+          fi
+          echo "$out" | grep -q "give exactly one of --manifest/--payload" || { echo "::error::mutual-exclusion reason missing: $out"; exit 1; }
+          if out=$(python3 plugins/compat/desktop-entry/translator.py --payload "$RT/m13-pt-src/rich.desktop" 2>&1); then
+            echo "::error::passthrough without --out must be rejected: $out"
+            exit 1
+          fi
+          echo "$out" | grep -q "requires --out" || { echo "::error::passthrough --out-required reason missing: $out"; exit 1; }
+          if out=$(python3 plugins/compat/desktop-entry/translator.py --payload "$RT/m13-pt-src/douyin.desktop" --out "$RT/m13-neg-out" 2>&1); then
+            echo "::error::passthrough colliding id (Name=Douyin) must be rejected: $out"
+            exit 1
+          fi
+          echo "$out" | grep -q "collides with an existing plugin id" || { echo "::error::collision reason missing: $out"; exit 1; }
+          if out=$(python3 plugins/compat/desktop-entry/translator.py --payload "$RT/m13-pt-src/noexec.desktop" --out "$RT/m13-neg-out" 2>&1); then
+            echo "::error::passthrough without Exec must be rejected: $out"
+            exit 1
+          fi
+          echo "$out" | grep -q "has no Exec=" || { echo "::error::no-Exec reason missing: $out"; exit 1; }
+          if out=$(python3 plugins/compat/desktop-entry/translator.py --payload "$RT/m13-pt-src/bad.desktop" --out "$RT/m13-neg-out" 2>&1); then
+            echo "::error::passthrough with a JSON payload must be rejected: $out"
+            exit 1
+          fi
+          echo "$out" | grep -q "not a freedesktop desktop entry" || { echo "::error::bad-format reason missing: $out"; exit 1; }
+          printf '' > "$RT/m13-pt-src/empty.desktop"
+          ! python3 plugins/compat/desktop-entry/translator.py --payload "$RT/m13-pt-src/empty.desktop" --out "$RT/m13-neg-out"
+          printf '[Desktop Entry]\nType=Link\nName=Link PT Demo\nURL=http://example.invalid\n' > "$RT/m13-pt-src/link.desktop"
+          ! python3 plugins/compat/desktop-entry/translator.py --payload "$RT/m13-pt-src/link.desktop" --out "$RT/m13-neg-out"
+          ! test -e "$RT/m13-neg-out" || { echo "::error::rejected runs must not produce an output directory"; exit 1; }
+          echo "PASSTHROUGH SMOKE OK (M13 real passthrough + declared-mode regression)"
+
   license:
     name: license (reuse lint, submodules excluded per spec 5 / risk 2)
     runs-on: ubuntu-latest
@@ -490,7 +588,7 @@ jobs:
           # 门禁增强、不会假红。方向只许更严。
           # M11-8 再扩到 M11(清偿审查 Minor 2):M11 章节已入库,同理;每里程碑扩一次。
           # M12-8 再扩到 M12:M12 章节已入库(acceptance-standard.md:172),同理。每里程碑扩一次。
-          for m in ("M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10", "M11", "M12"):
+          for m in ("M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10", "M11", "M12", "M13"):
             if not any(line == f"## {m}" or line.startswith(f"## {m} ") for line in std_lines):
               fails.append(f"acceptance-standard.md missing section: {m}")
           # (c) spec anchor referenced by .etherkit/AGENTS.md

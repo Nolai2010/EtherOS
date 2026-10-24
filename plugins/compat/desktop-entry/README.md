@@ -45,28 +45,46 @@
 
 **冲突即拒绝**：归一化后的 id 若与 `plugins/{builtin,optional,dev}` 中已声明的插件 id 撞名，翻译器**拒绝并说明**（exit 2），绝不覆盖另一个插件。唯一例外是**重翻译自身**：源声明里已叫这个名字时允许（幂等重跑）。
 
-## CLI（沿用 M3 契约）
+## CLI（M13 起 `--manifest` 与 `--payload` 二选一）
 
 ```
-translator.py --manifest <源声明 JSON> [--payload <.desktop 路径>] [--out <输出目录>] [--name <覆盖 id>]
+translator.py (--manifest <源声明 JSON> | --payload <.desktop 路径>) [--out <输出目录>] [--name <覆盖 id>]
 ```
 
-- `--payload` 缺省时取 manifest 的 `payload` 字段（相对 manifest 所在目录解析）。
-- `--out` 缺省为 `<manifest 所在目录>/translated`。
+- **二选一互斥**（约束 64）：`--manifest` 与 `--payload` 必须恰好给出一个——同时给出 → 拒绝（`give exactly one of --manifest/--payload`）；都不给 → 同因拒绝。均 exit 2。
+- **声明模式**（`--manifest`）：`--payload` 缺省时取 manifest 的 `payload` 字段（相对 manifest 所在目录解析）；`--out` 缺省为 `<manifest 所在目录>/translated`。行为与 M10 **逐字节不变**（约束 63）。
+- **直通模式**（`--payload` 且无 `--manifest`）：见下节。
 - `exit 0` = 已真实写出 `plugin.json` + `<id>.payload`，并打印结果 JSON（`status: "translated"`）。
-- `exit 2` = 拒绝（入口不可用 / 非 desktop-entry / 缺关键字段 / id 冲突），打印原因、**不产出**。
+- `exit 2` = 拒绝（入口不可用 / 非 desktop-entry / 缺关键字段 / id 冲突 / 参数互斥 / 直通缺 `--out`），打印原因、**不产出**。
 
 stdlib only（与 `plugins/compat/stub-runtime/translator.py` 同族），不导入/链接任何 `kernel/` 代码（约束 11）。
 
-## 负例（三条，各自 exit 2 + 原因）
+## 直通模式（--payload-only）
+
+裸 `.desktop` 文件原样翻译，无需先手写一份 EtherOS 源声明 JSON（M13 清偿 M10 CONCERN：compat 层的存在意义是把外部产物**原样**翻译，"先包一层声明 JSON"是桩时代契约残留，不是真实世界需求）。
+
+```
+translator.py --payload <系统里的 .desktop 路径> --out <输出目录>
+```
+
+- **`--out` 必填**：声明模式的缺省值 `<manifest 目录>/translated` 依附 manifest 所在目录；直通模式没有这个依附对象，强行造一个缺省值（如 cwd）会把产物写到不可预期位置——**拒绝比猜测诚实**（差异点 3）。
+- **id 撞名无"重翻译自身"例外**：声明模式的例外服务的是"对已入树插件重翻译"（幂等）；直通产物本就不在树中，无幂等对象可言，归一化 id 与任何已声明插件撞名**即拒**（约束 65）。
+- 两模式**共用同一解析/门禁/归一化/产物代码路径**；result JSON 与 manifest 键名集合两模式**逐字相同**（零新输出键，约束 66——模式差异只存在于 CLI 调用与文档，不进产物）。
+- **产物是翻译产物，不是用户声明**：直通模式生成的 manifest 由本 translator 推导生成（id 由 `Name` 归一化而来），与手写的源声明 JSON 性质不同；它同样只是描述符级翻译的产物，见上方诚实边界。
+
+## 负例（七条，各自 exit 2 + 原因）
 
 | 负例 | 触发 | 结果 |
 |---|---|---|
 | ① 缺 `Exec` | `[Desktop Entry]` 有 `Name` + `Type=Application` 但无 `Exec` | exit 2，`desktop entry has no Exec= … nothing to forward into the wrapper payload` |
 | ② 非法格式 | payload 塞一段 JSON（首行 `{`） | exit 2，`payload is not a freedesktop desktop entry: no [Desktop Entry] section (looks like JSON, not a desktop entry)` |
 | ③ 空文件 | payload 为 0 字节/全空白 | exit 2，`payload '<file>' is empty (0 bytes / blank) — nothing to translate` |
+| ④ 参数互斥 | `--manifest` 与 `--payload` 同时给出（或都不给） | exit 2，`give exactly one of --manifest/--payload` |
+| ⑤ 直通缺 `--out` | `--payload` 无 `--manifest` 且未给 `--out` | exit 2，`passthrough mode (--payload without --manifest) requires --out …` |
+| ⑥ 直通撞名 | 直通 `Name=Douyin`（归一化 id 撞已声明插件） | exit 2，`normalized plugin id 'douyin' … collides with an existing plugin id …`（无"重翻译自身"例外） |
+| ⑦ `Type=Link` | `Type` 非 `Application`（`Link` / `Directory`） | exit 2，`desktop entry Type='Link' is not supported — only Type=Application maps to a compat-bridge plugin (Type=Link/Directory have no Exec payload to bridge)` |
 
-另有 `Type=Link` / `Type=Directory` 拒绝、非 UTF-8 二进制 payload 拒绝、id 冲突拒绝，均 exit 2 并说明。
+上表 ⑦ 已单列 `Type=Link`；`Type=Directory` 同因拒绝（仅消息中 `Type=` 后的值不同）。另有非 UTF-8 二进制 payload 拒绝，均 exit 2 并说明。
 
 ## 不做什么
 

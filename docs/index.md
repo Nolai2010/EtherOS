@@ -44,3 +44,4 @@
 | `../kernel/interfaces/isolation-contract.md` | 隔离契约（M12 isolate 原语）：权限词汇表（8 位封闭集合，NET/GUI 预留）、capability token → 权限位映射表（未列名=未分类=零位，默认拒绝）、两级执行边界（reference-only 永不执行外部 payload / process-confined 净化环境+锁定 cwd）、enforced vs declared-only 清单 |
 | `../tools/isolation.py` | 隔离配置生成器（M12）：消费装载状态（不重读 config）按词汇表推导每域 perms（perms ⊆ declared）与执行边界分级，输出 `status: "profile"`；今天无 per-bit 强制点（位图仅声明，门禁化属后续安全模型） |
 | `docs/reports/2026-10-24-m12-acceptance.md` | M12 独立验收报告（6/6 PASS；契约四文件逐字比对、99/99 推导断言、边界证据对抗实证（旧版泄漏 6 变量 vs HEAD 零泄漏）、守卫精确化独立评估、负例 10/10、M12-06 零回退口径记档） |
+| `docs/reports/2026-10-25-m13-acceptance.md` | M13 独立验收报告（6/6 PASS；直通模式存在性与零新输出键、声明模式三路工作树逐字节回归、负例七条、M10 step run 块 sha256 零变化、诚实边界零夸大、M13-06 零回退口径记档） |
