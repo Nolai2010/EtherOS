@@ -4,7 +4,7 @@
 > 技术副口号：一纸插件声明，兼容百种格式，贯通各类终端 (One plugin manifest, every app format, every device.)
 > Tagline: **Plugin-Native. Kernel-Minimal.**
 
-插件原生、内核极简的开源大一统操作系统（M0–M6 Phase 1 收官 + M7–M12 Phase 2：CI 十 job 全绿、发布通道打通、x86-64/aarch64 均可构建、schema v2 支持插件依赖与拓扑装载、compat 层首个真翻译：.desktop 描述符级端到端、装载闭环：load 原语首次真正执行并被路由消费、隔离原语具化：权限位图 + 宿主侧执行边界）。
+插件原生、内核极简的开源大一统操作系统（M0–M6 Phase 1 收官 + M7–M13 Phase 2：CI 十 job 全绿、发布通道打通、x86-64/aarch64 均可构建、schema v2 支持插件依赖与拓扑装载、compat 层首个真翻译：.desktop 描述符级端到端、装载闭环：load 原语首次真正执行并被路由消费、隔离原语具化：权限位图 + 宿主侧执行边界、translator 直通模式：裸 .desktop 原样翻译）。
 
 - 内核只做 **调度 + 协议/能力解释(路由) + 加载/隔离**，零格式知识。
 - 内核之外没有非插件实体：驱动/服务/shell/文件管理器/设置/性能监控 = `plugins/builtin/` 内建不可卸载插件；计算器、抖音兼容包等 = `plugins/optional/` 可选插件。
@@ -53,3 +53,4 @@
 - [x] M10：translator 真实现（compat 层首个真翻译：freedesktop .desktop 描述符 → 插件 manifest v2 端到端闭环；**描述符级翻译，非二进制指令翻译**，douyin/stub 口径未变）+ 独立验收通过（docs/reports/2026-10-24-m10-acceptance.md，6/6）
 - [x] M11：装载闭环（plan → load 物化 → 路由消费：load 原语首次真正执行——`tools/load_state.py` 消费装载计划物化 registry/routes/isolation，`route_plugins.py --load-state` 真实消费；**loaded = 宿主侧已登记 + 路由已激活，非已启动/非已运行**）+ 独立验收通过（docs/reports/2026-10-24-m11-acceptance.md，6/6）
 - [x] M12：隔离原语具化（isolate 原语首次真正执行——封闭权限词汇表 + 逐 token 映射（未列名=零位，默认拒绝）+ 两级执行边界：compat-bridge 外部 payload 永不执行 / native payload 净化环境+锁定 cwd；**今天无任何权限位被门禁化，FS/NET 级仅声明**）+ 独立验收通过（docs/reports/2026-10-24-m12-acceptance.md，6/6）
+- [x] M13：translator 直通模式（裸 `.desktop` 原样翻译——`--payload` 无需 `--manifest` 直译为 manifest v2 + 包装 payload；`--manifest`/`--payload` 二选一，声明模式输出逐字节不变；**产物是翻译产物非用户声明，仍是描述符级翻译**）+ 独立验收通过（docs/reports/2026-10-25-m13-acceptance.md，6/6）
